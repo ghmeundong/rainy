@@ -30,6 +30,7 @@ body.hero-locked {
   background-size: cover;
   background-position: center;
   background-attachment: scroll;
+  z-index: 5; /* ensure banner overlays the mouse rainbow */
 }
 
 .banner.hero-fixed {
@@ -155,16 +156,25 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 6;
+  z-index: 0; /* sit above background but below main content */
   mix-blend-mode: screen;
-  opacity: 0.12;
-  transition: opacity 160ms linear;
-  background: radial-gradient(circle at 50% 50%, rgba(255,0,128,0.06), rgba(255,255,0,0.04) 30%, transparent 60%);
-  will-change: background;
+  opacity: 0.35;
+  transition: opacity 120ms linear, transform 200ms linear;
+  /* use CSS variables for center if needed */
+  background: radial-gradient(circle at var(--rx,50%) var(--ry,50%), rgba(255,0,0,0.20) 0%, rgba(255,127,0,0.18) 12%, rgba(255,255,0,0.16) 24%, rgba(0,255,0,0.14) 36%, rgba(0,128,255,0.12) 52%, rgba(75,0,130,0.10) 68%, rgba(148,0,211,0.08) 84%, transparent 100%);
+  filter: blur(36px) saturate(1.6) brightness(1.25);
+  will-change: background, filter, opacity;
+  animation: rainbow-sparkle 4s ease-in-out infinite;
+}
+
+@keyframes rainbow-sparkle {
+  0% { filter: blur(30px) saturate(1.45) brightness(1.12); transform: scale(1); }
+  50% { filter: blur(42px) saturate(1.7) brightness(1.3); transform: scale(1.02); }
+  100% { filter: blur(30px) saturate(1.45) brightness(1.12); transform: scale(1); }
 }
 
 @media (max-width: 900px) {
-  .mouse-rainbow { opacity: 0.08; }
+  .mouse-rainbow { opacity: 0.22; }
 }
 
 .quote-card {
@@ -177,6 +187,8 @@ body {
   border: none;
   box-shadow: none;
   min-height: 90vh;
+  position: relative;
+  z-index: 3; /* ensure quote sits above the rainbow overlay */
 }
 
 .quote-inner {
@@ -199,6 +211,12 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.portrait-image,
+.large-image {
+  position: relative;
+  z-index: 2; /* images should appear above the rainbow overlay */
 }
 
 @media (max-width: 900px) {

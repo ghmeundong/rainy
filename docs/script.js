@@ -250,16 +250,30 @@ $(document).ready(function() {
   let rafId = null;
 
   function updateRainbowBackground(x, y) {
-    // subtle rainbow radial gradient centered at pointer
+    // vivid rainbow radial gradient centered at pointer
     const colors = [
-      'rgba(255,0,128,0.06) 0%',
-      'rgba(255,160,0,0.04) 22%',
-      'rgba(255,255,0,0.035) 40%',
-      'rgba(0,240,200,0.03) 60%',
-      'rgba(0,128,255,0.02) 80%',
+      'rgba(255,0,0,0.20) 0%',
+      'rgba(255,127,0,0.18) 12%',
+      'rgba(255,255,0,0.16) 24%',
+      'rgba(0,255,0,0.14) 36%',
+      'rgba(0,128,255,0.12) 52%',
+      'rgba(75,0,130,0.10) 68%',
+      'rgba(148,0,211,0.08) 84%',
       'transparent 100%'
     ].join(', ');
+
+    // If pointer is over the hero banner, hide the rainbow overlay
+    if (bannerEl) {
+      const bRect = bannerEl.getBoundingClientRect();
+      if (y <= bRect.bottom) {
+        rainbowEl.style.opacity = '0';
+        return;
+      }
+    }
+
     rainbowEl.style.background = `radial-gradient(circle at ${x}px ${y}px, ${colors})`;
+    // ensure opacity matches device (stronger when visible)
+    rainbowEl.style.opacity = isMobile ? '0.28' : '0.45';
   }
 
   function scheduleRainbow(x, y) {
