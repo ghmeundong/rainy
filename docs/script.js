@@ -1,12 +1,14 @@
 // ==================== jQuery.ripples 효과 설정 ====================
 
 // 물결 효과 설정 매개변수 (WebGL 기반)
+const isMobile = window.matchMedia('(max-width: 900px)').matches;
+const devicePixelRatio = window.devicePixelRatio || 1;
 const rippleConfig = {
-  resolution: 256,    // 텍스처 해상도 (크수록 정교함, 성능 ↓)
-  dropRadius: 15,     // 물결 반경 (픽셀 단위, 작을수록 작은 물결)
-  perturbance: 0.015, // 물결의 강도 (0-0.5 범위, 작을수록 빨리 사라짐)
-  interactive: true,  // 마우스/터치 인터랙션 활성화
-  crossOrigin: ''     // CORS 설정
+  resolution: isMobile ? 512 : 1024,    // 텍스처 해상도 (크수록 정교함, 성능 ↓)
+  dropRadius: isMobile ? 20 : 18,       // 물결 반경
+  perturbance: 0.08,                    // 물결의 강도 (크수록 파동이 더 빠르게 보입니다)
+  interactive: true,                    // 마우스/터치 인터랙션 활성화
+  crossOrigin: ''                       // CORS 설정
 };
 
 // ==================== 초기화 ====================
@@ -89,7 +91,7 @@ $(document).ready(function() {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < repulseRadius && distance > 1) {
-          const force = (1 - distance / repulseRadius) * 0.9; // 물이 밀어내는 느낌
+          const force = (1 - distance / repulseRadius) * 0.4; // 물이 밀어내는 느낌
           const angle = Math.atan2(dy, dx);
           
           state.vx += Math.cos(angle) * force;
