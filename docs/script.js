@@ -4,7 +4,7 @@
 const isMobile = window.matchMedia('(max-width: 900px)').matches;
 const devicePixelRatio = window.devicePixelRatio || 1;
 const rippleConfig = {
-  resolution: isMobile ? 512 : 512,    // 텍스처 해상도 (크수록 정교함, 성능 ↓)
+  resolution: isMobile ? 256 : 512,    // 텍스처 해상도 (크수록 정교함, 성능 ↓)
   dropRadius: isMobile ? 20 : 18,       // 물결 반경
   perturbance: 0.08,                    // 물결의 강도 (크수록 파동이 더 빠르게 보입니다)
   interactive: true,                    // 마우스/터치 인터랙션 활성화
