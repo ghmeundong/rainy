@@ -155,13 +155,14 @@ $(document).ready(function() {
   
   animateLetters();
 
-  // 모바일에서 히어로 화면을 처음 고정하고 아래 스와이프 시 해제
+  // 모바일에서 히어로 화면을 처음 고정하고 더블 탭으로 해제
   const mobileLockMedia = window.matchMedia('(max-width: 900px)');
   let heroLocked = mobileLockMedia.matches;
-  let startY = 0;
-  let currentY = 0;
-  let dragging = false;
-  const unlockThreshold = 70;
+  let lastTap = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
+  const doubleTapDelay = 300;
+  const doubleTapDistance = 50;
 
   function updateHeroLockState() {
     if (heroLocked) {
@@ -171,8 +172,6 @@ $(document).ready(function() {
     } else {
       document.documentElement.classList.remove('hero-locked');
       document.body.classList.remove('hero-locked');
-      banner.style.transform = '';
-      banner.classList.remove('swipe-dragging');
       banner.classList.remove('hero-fixed');
     }
   }
@@ -186,34 +185,26 @@ $(document).ready(function() {
     }
   });
 
-  banner.addEventListener('touchstart', (event) => {
-    if (!heroLocked || event.touches.length !== 1) return;
-    startY = event.touches[0].clientY;
-    currentY = 0;
-    dragging = true;
-    banner.classList.add('swipe-dragging');
-  }, { passive: false });
+  banner.addEventListener('touchend', (event) => {
+    if (!heroLocked) return;
+    
+    const now = Date.now();
+    const touch = event.changedTouches[0];
+    const currentX = touch.clientX;
+    const currentY = touch.clientY;
+    const timeDiff = now - lastTap;
+    const distX = Math.abs(currentX - lastTapX);
+    const distY = Math.abs(currentY - lastTapY);
 
-  banner.addEventListener('touchmove', (event) => {
-    if (!heroLocked || !dragging || event.touches.length !== 1) return;
-    const deltaY = event.touches[0].clientY - startY;
-    event.preventDefault();
-    if (deltaY > 0) {
-      currentY = Math.min(deltaY, 150);
-      banner.style.transform = `translateY(${currentY}px)`;
-    }
-  }, { passive: false });
-
-  banner.addEventListener('touchend', () => {
-    if (!heroLocked || !dragging) return;
-    dragging = false;
-    banner.classList.remove('swipe-dragging');
-
-    if (currentY >= unlockThreshold) {
+    if (timeDiff < doubleTapDelay && distX < doubleTapDistance && distY < doubleTapDistance) {
+      // 더블 탭 감지
       heroLocked = false;
       updateHeroLockState();
+      lastTap = 0;
     } else {
-      banner.style.transform = '';
+      lastTap = now;
+      lastTapX = currentX;
+      lastTapY = currentY;
     }
-  });
+  }, { passive: false });
 });

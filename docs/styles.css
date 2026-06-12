@@ -51,7 +51,7 @@ body.hero-locked {
   z-index: 1;
 }
 
-.swipe-tip {
+.double-tap-hint {
   position: absolute;
   left: 50%;
   bottom: 28px;
@@ -64,18 +64,9 @@ body.hero-locked {
   pointer-events: none;
 }
 
-body:not(.hero-locked) .swipe-tip {
+body:not(.hero-locked) .double-tap-hint {
   opacity: 0;
   visibility: hidden;
-}
-
-.banner {
-  transition: transform 0.28s ease;
-  will-change: transform;
-}
-
-.banner.swipe-dragging {
-  transition: none;
 }
 
 .floating-text {
@@ -135,20 +126,29 @@ body:not(.hero-locked) .swipe-tip {
   transform: scale(1.02);
 }
 
-.big-image {
+.large-image {
   grid-column: 1 / -1;
   min-height: 80vh;
   overflow: hidden;
   border-radius: 32px;
 }
 
-.big-image img {
+.large-image img {
   height: 100%;
   object-fit: cover;
 }
 
-.small-image {
+.portrait-image {
   min-height: 60vh;
+}
+
+@media (max-width: 900px) {
+  .portrait-image img {
+    transform: rotate(90deg);
+    object-fit: contain;
+    width: 100%;
+    height: auto;
+  }
 }
 
 @media (max-width: 900px) {
@@ -157,10 +157,10 @@ body:not(.hero-locked) .swipe-tip {
   }
 
   .gallery img {
-    height: 50vh;
+    height: auto;
   }
 
-  .big-image {
+  .large-image {
     min-height: 60vh;
   }
 }
