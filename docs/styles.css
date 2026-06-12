@@ -174,7 +174,11 @@ body {
 }
 
 @media (max-width: 900px) {
-  .mouse-rainbow { opacity: 0.22; }
+  .mouse-rainbow {
+    opacity: 0.42;
+    filter: blur(28px) saturate(2) brightness(1.45);
+    animation-duration: 3.5s;
+  }
 }
 
 .quote-card {
