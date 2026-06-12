@@ -341,4 +341,184 @@ $(document).ready(function() {
 
   // init
   updateBackgroundByScroll();
+  
+  // ------------------- RainyDay.js for left portrait (with fallback) -------------------
+  const leftPortrait = document.getElementById('left-portrait');
+  if (leftPortrait) {
+    const leftImg = leftPortrait.querySelector('img');
+    const leftCanvas = leftPortrait.querySelector('.rainy-canvas');
+
+    function loadScript(url) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+        s.onload = () => resolve(url);
+        s.onerror = () => reject(new Error('Failed to load ' + url));
+        document.head.appendChild(s);
+      });
+    }
+
+    (async function initRainy() {
+      // ensure canvas element exists and is sized to image before library init
+      try {
+        const DPR = window.devicePixelRatio || 1;
+        const imgW = Math.max(1, leftImg.clientWidth);
+        const imgH = Math.max(1, leftImg.clientHeight);
+        // set CSS size
+        leftCanvas.style.width = imgW + 'px';
+        leftCanvas.style.height = imgH + 'px';
+        // set backing store size for clarity
+        leftCanvas.width = Math.round(imgW * DPR);
+        leftCanvas.height = Math.round(imgH * DPR);
+        leftCanvas.getContext('2d').setTransform(DPR, 0, 0, DPR, 0, 0);
+        leftCanvas.style.display = 'block';
+      } catch (e) {
+        console.warn('[rainy] canvas sizing failed', e && e.message);
+      }
+      // If the local rainyday.js is already loaded (we add a script tag in index.html), prefer it
+      if (!window.RainyDay && !window.rainyday && !window.Rainyday) {
+        const cdns = [
+          'rainyday.js',
+          'https://cdnjs.cloudflare.com/ajax/libs/rainyday/0.1.0/rainyday.min.js',
+          'https://cdn.jsdelivr.net/npm/rainydayjs@0.0.1/rainyday.min.js',
+          'https://unpkg.com/rainydayjs@latest/dist/rainyday.min.js'
+        ];
+
+        for (const url of cdns) {
+          try {
+            // try loading candidate script; ignore failures
+            // eslint-disable-next-line no-await-in-loop
+            await loadScript(url);
+            break;
+          } catch (e) {
+            console.warn(e && e.message);
+          }
+        }
+      }
+
+      // If a RainyDay constructor exists, try to initialize it.
+      const Rainy = window.RainyDay || window.rainyday || window.Rainyday;
+      if (Rainy) {
+        try {
+          let engine = null;
+          // Try common constructor patterns
+          try {
+            // Provide high-resolution canvas sizes to RainyDay to reduce pixelation
+            const DPR = window.devicePixelRatio || 1;
+            const imgW = Math.max(1, leftImg.clientWidth);
+            const imgH = Math.max(1, leftImg.clientHeight);
+            const rdOptions = {
+              image: leftImg,
+              canvas: leftCanvas,
+              opacity: 0.9,
+              blur: 6,
+              enableSizeChange: true,
+              fps: isMobile ? 18 : 20,
+              // give the library physical pixel dimensions so it creates high-res buffers
+              width: Math.round(imgW * DPR),
+              height: Math.round(imgH * DPR),
+              position: 'absolute',
+              top: (leftPortrait.getBoundingClientRect().top + window.pageYOffset) + 'px',
+              left: (leftPortrait.getBoundingClientRect().left + window.pageXOffset) + 'px'
+            };
+            // ensure canvas is passed as DOM element when available
+            rdOptions.canvas = leftCanvas;
+            engine = new Rainy(rdOptions);
+          } catch (err) {
+            try { engine = new Rainy(leftImg, leftCanvas); } catch (err2) { engine = null; }
+          }
+
+            if (engine) {
+            try {
+              // Tweak options so drops are smaller and will flow (lower gravity threshold)
+              try { engine.options = engine.options || {}; } catch (e) { engine.options = {}; }
+              engine.options.gravityThreshold = 1; // small drops will be treated as flowing
+              engine.options.opacity = 0.75;
+              engine.options.blur = 6;
+              engine.options.enableCollisions = false; // smooth flowing
+              // prefer the DROPS trail behaviour
+              try { engine.trail = engine.TRAIL_DROPS; } catch (e) {}
+
+              if (typeof engine.rain === 'function') {
+                // presets: [baseRadius, variance, probability]
+                // use small base radius and small variance for fine drops
+                // increase interval to reduce CPU load
+                engine.rain([[1, 2, 0.9]], 60);
+              } else if (typeof engine.makeRain === 'function') {
+                engine.makeRain();
+              }
+            } catch (e) {
+              console.warn('RainyDay engine ran into an error', e);
+            }
+          }
+        } catch (e) {
+          console.warn('RainyDay init failed', e && e.message);
+        }
+      } else {
+        // Fallback: simple canvas raindrops effect
+        (function simpleRain(canvas, img) {
+          if (!canvas || !img) return;
+          const ctx = canvas.getContext('2d');
+          const DPR = window.devicePixelRatio || 1;
+          function resize() {
+            // Set canvas physical pixels and keep CSS size to image size
+            const w = Math.max(1, img.clientWidth);
+            const h = Math.max(1, img.clientHeight);
+            canvas.width = Math.round(w * DPR);
+            canvas.height = Math.round(h * DPR);
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            // scale drawing so 1 unit = 1 CSS pixel
+            ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+          }
+          window.addEventListener('resize', resize); resize();
+
+          const drops = [];
+          const maxDrops = 100;
+          function addDrop() {
+            const cssW = Math.max(1, canvas.clientWidth || img.clientWidth);
+            // smaller drops with a little horizontal drift (coords in CSS pixels)
+            drops.push({ x: Math.random() * cssW, y: -6 - Math.random() * 10, vx: (Math.random() - 0.5) * 0.3, vy: 1.5 + Math.random() * 1.6, r: 0.8 + Math.random() * 1.6 });
+          }
+
+          let lastAdd = 0;
+          function loop(t) {
+            // add drops at a lower rate and cap total drops
+            if ((!lastAdd || t - lastAdd > 120) && drops.length < maxDrops) { addDrop(); lastAdd = t; }
+            // clear using CSS pixel dimensions
+            const DPR = window.devicePixelRatio || 1;
+            const lw = canvas.width / DPR;
+            const lh = canvas.height / DPR;
+            ctx.clearRect(0, 0, lw, lh);
+            for (let i = drops.length - 1; i >= 0; i--) {
+              const d = drops[i];
+              d.x += d.vx;
+              d.y += d.vy;
+              d.vy += 0.045; // gravity
+              // draw small droplet
+              ctx.beginPath();
+              const alpha = Math.max(0, 0.22 - (d.y / lh) * 0.14);
+              ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+              ctx.ellipse(d.x, d.y, d.r, d.r * 1.3, 0, 0, Math.PI * 2);
+              ctx.fill();
+              // streak trailing effect proportional to fall speed
+              const streakLen = Math.min(18, 4 + d.vy * 6);
+              ctx.beginPath();
+              ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.07})`;
+              ctx.lineWidth = Math.max(0.6, d.r * 0.6);
+              ctx.moveTo(d.x, d.y - d.vy * 0.6);
+              ctx.lineTo(d.x + d.vx * streakLen, d.y + streakLen);
+              ctx.stroke();
+
+              // remove off-canvas drops
+              if (d.y > lh + 30 || d.x < -30 || d.x > lw + 30) drops.splice(i, 1);
+            }
+            requestAnimationFrame(loop);
+          }
+          requestAnimationFrame(loop);
+        }(leftCanvas, leftImg));
+      }
+    })();
+  }
 });
