@@ -4,7 +4,7 @@
 const isMobile = window.matchMedia('(max-width: 900px)').matches;
 const devicePixelRatio = window.devicePixelRatio || 1;
 const rippleConfig = {
-  resolution: isMobile ? 512 : 1024,    // 텍스처 해상도 (크수록 정교함, 성능 ↓)
+  resolution: isMobile ? 512 : 512,    // 텍스처 해상도 (크수록 정교함, 성능 ↓)
   dropRadius: isMobile ? 20 : 18,       // 물결 반경
   perturbance: 0.08,                    // 물결의 강도 (크수록 파동이 더 빠르게 보입니다)
   interactive: true,                    // 마우스/터치 인터랙션 활성화
@@ -29,6 +29,25 @@ $(document).ready(function() {
   const banner = $('.banner')[0];
   const bannerRect = banner.getBoundingClientRect();
   
+  // 글자에서 ripple 효과 트리거
+  letters.forEach((letter) => {
+    letter.addEventListener('mouseenter', (e) => {
+      const rect = banner.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      $('.banner').ripples('showDrop', x, y, 25, 0.08);
+    });
+
+    letter.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const rect = banner.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      $('.banner').ripples('showDrop', x, y, 25, 0.08);
+    }, { passive: true });
+  });
+
   // 마우스 위치
   let mouseX = 0;
   let mouseY = 0;

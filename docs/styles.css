@@ -90,6 +90,7 @@ body.hero-locked .double-tap-hint {
   font-size: 5rem;
   font-weight: 700;
   will-change: transform, left, top;
+  pointer-events: auto;
 }
 
 @media (max-width: 900px) {
