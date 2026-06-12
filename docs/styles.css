@@ -26,10 +26,26 @@ body.hero-locked {
   position: relative;
   overflow: hidden;
   background: #05060a;
+}
+
+.banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background-image: url('assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg');
   background-size: cover;
   background-position: center;
   background-attachment: scroll;
+  z-index: 0;
+  will-change: transform;
+}
+
+@media (max-width: 900px) {
+  .banner::before {
+    transform: rotate(90deg);
+    background-size: auto 100%;
+    background-position: center center;
+  }
 }
 
 .banner.hero-fixed {
@@ -98,15 +114,10 @@ body.hero-locked .double-tap-hint {
     gap: 0.1em;
   }
 
-  .banner {
-    background-size: auto 100%;
-    background-position: center top;
-  }
-
   .gallery img {
     height: auto;
   }
-}
+}}
 
 .gallery {
   display: grid;
@@ -144,15 +155,8 @@ body.hero-locked .double-tap-hint {
 
 .portrait-image {
   min-height: 60vh;
-}
-
-@media (max-width: 900px) {
-  .portrait-image img {
-    transform: rotate(90deg);
-    object-fit: contain;
-    width: 100%;
-    height: auto;
-  }
+  overflow: hidden;
+  border-radius: 24px;
 }
 
 @media (max-width: 900px) {
