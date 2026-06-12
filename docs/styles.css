@@ -14,6 +14,7 @@ body {
   overflow-x: hidden;
 }
 
+html.hero-locked,
 body.hero-locked {
   height: 100vh;
   overflow: hidden;
@@ -29,6 +30,16 @@ body.hero-locked {
   background-size: cover;
   background-position: center;
   background-attachment: scroll;
+}
+
+.banner.hero-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 5;
+  touch-action: none;
 }
 
 .banner::after {
@@ -86,10 +97,19 @@ body:not(.hero-locked) .swipe-tip {
   will-change: transform, left, top;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .floating-text {
     font-size: 2.5rem;
     gap: 0.1em;
+  }
+
+  .banner {
+    background-size: auto 100%;
+    background-position: center top;
+  }
+
+  .gallery img {
+    height: auto;
   }
 }
 

@@ -156,7 +156,7 @@ $(document).ready(function() {
   animateLetters();
 
   // 모바일에서 히어로 화면을 처음 고정하고 아래 스와이프 시 해제
-  const mobileLockMedia = window.matchMedia('(max-width: 768px)');
+  const mobileLockMedia = window.matchMedia('(max-width: 900px)');
   let heroLocked = mobileLockMedia.matches;
   let startY = 0;
   let currentY = 0;
@@ -165,11 +165,15 @@ $(document).ready(function() {
 
   function updateHeroLockState() {
     if (heroLocked) {
+      document.documentElement.classList.add('hero-locked');
       document.body.classList.add('hero-locked');
+      banner.classList.add('hero-fixed');
     } else {
+      document.documentElement.classList.remove('hero-locked');
       document.body.classList.remove('hero-locked');
       banner.style.transform = '';
       banner.classList.remove('swipe-dragging');
+      banner.classList.remove('hero-fixed');
     }
   }
 
@@ -193,8 +197,8 @@ $(document).ready(function() {
   banner.addEventListener('touchmove', (event) => {
     if (!heroLocked || !dragging || event.touches.length !== 1) return;
     const deltaY = event.touches[0].clientY - startY;
+    event.preventDefault();
     if (deltaY > 0) {
-      event.preventDefault();
       currentY = Math.min(deltaY, 150);
       banner.style.transform = `translateY(${currentY}px)`;
     }
