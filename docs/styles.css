@@ -52,21 +52,25 @@ body.hero-locked {
 }
 
 .double-tap-hint {
-  position: absolute;
+  position: fixed;
   left: 50%;
-  bottom: 28px;
+  bottom: 40px;
   transform: translateX(-50%);
-  z-index: 3;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.95rem;
+  z-index: 10;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 1rem;
+  font-weight: 500;
   text-align: center;
   letter-spacing: 0.02em;
   pointer-events: none;
-}
-
-body:not(.hero-locked) .double-tap-hint {
   opacity: 0;
   visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+body.hero-locked .double-tap-hint {
+  opacity: 1;
+  visibility: visible;
 }
 
 .floating-text {
