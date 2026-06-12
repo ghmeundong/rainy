@@ -154,4 +154,62 @@ $(document).ready(function() {
   }
   
   animateLetters();
+
+  // 모바일에서 히어로 화면을 처음 고정하고 아래 스와이프 시 해제
+  const mobileLockMedia = window.matchMedia('(max-width: 768px)');
+  let heroLocked = mobileLockMedia.matches;
+  let startY = 0;
+  let currentY = 0;
+  let dragging = false;
+  const unlockThreshold = 70;
+
+  function updateHeroLockState() {
+    if (heroLocked) {
+      document.body.classList.add('hero-locked');
+    } else {
+      document.body.classList.remove('hero-locked');
+      banner.style.transform = '';
+      banner.classList.remove('swipe-dragging');
+    }
+  }
+
+  updateHeroLockState();
+
+  mobileLockMedia.addEventListener?.('change', (event) => {
+    if (!event.matches) {
+      heroLocked = false;
+      updateHeroLockState();
+    }
+  });
+
+  banner.addEventListener('touchstart', (event) => {
+    if (!heroLocked || event.touches.length !== 1) return;
+    startY = event.touches[0].clientY;
+    currentY = 0;
+    dragging = true;
+    banner.classList.add('swipe-dragging');
+  }, { passive: false });
+
+  banner.addEventListener('touchmove', (event) => {
+    if (!heroLocked || !dragging || event.touches.length !== 1) return;
+    const deltaY = event.touches[0].clientY - startY;
+    if (deltaY > 0) {
+      event.preventDefault();
+      currentY = Math.min(deltaY, 150);
+      banner.style.transform = `translateY(${currentY}px)`;
+    }
+  }, { passive: false });
+
+  banner.addEventListener('touchend', () => {
+    if (!heroLocked || !dragging) return;
+    dragging = false;
+    banner.classList.remove('swipe-dragging');
+
+    if (currentY >= unlockThreshold) {
+      heroLocked = false;
+      updateHeroLockState();
+    } else {
+      banner.style.transform = '';
+    }
+  });
 });

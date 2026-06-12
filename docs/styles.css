@@ -14,6 +14,11 @@ body {
   overflow-x: hidden;
 }
 
+body.hero-locked {
+  height: 100vh;
+  overflow: hidden;
+}
+
 .banner {
   min-height: 100vh;
   width: 100%;
@@ -33,6 +38,33 @@ body {
   background: linear-gradient(180deg, rgba(5,6,10,0.08), rgba(5,6,10,0.88));
   pointer-events: none;
   z-index: 1;
+}
+
+.swipe-tip {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 3;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  text-align: center;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+body:not(.hero-locked) .swipe-tip {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.banner {
+  transition: transform 0.28s ease;
+  will-change: transform;
+}
+
+.banner.swipe-dragging {
+  transition: none;
 }
 
 .floating-text {
