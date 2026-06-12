@@ -139,6 +139,34 @@ body.hero-locked .double-tap-hint {
   border-radius: 32px;
 }
 
+/* Rainbow mouse overlay and dynamic background variables */
+:root {
+  --bg-color: #05060a;
+  --bg-dawn: #708090; /* cool dawn */
+  --bg-sunrise: #fff8bc; /* warm sunrise */
+}
+
+body {
+  background: var(--bg-color);
+  transition: background 400ms linear;
+}
+
+.mouse-rainbow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  mix-blend-mode: screen;
+  opacity: 0.12;
+  transition: opacity 160ms linear;
+  background: radial-gradient(circle at 50% 50%, rgba(255,0,128,0.06), rgba(255,255,0,0.04) 30%, transparent 60%);
+  will-change: background;
+}
+
+@media (max-width: 900px) {
+  .mouse-rainbow { opacity: 0.08; }
+}
+
 .quote-card {
   grid-column: 1 / -1;
   display: flex;

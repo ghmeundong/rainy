@@ -14,15 +14,26 @@ const rippleConfig = {
 // ==================== 초기화 ====================
 
 $(document).ready(function() {
-  // 배너에 jQuery.ripples 효과 적용
-  $('.banner').ripples({
-    imageUrl: 'assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
-    resolution: rippleConfig.resolution,
-    dropRadius: rippleConfig.dropRadius,
-    perturbance: rippleConfig.perturbance,
-    interactive: rippleConfig.interactive,
-    crossOrigin: rippleConfig.crossOrigin
-  });
+  // 배너에 jQuery.ripples 효과 적용 (안전하게 초기화)
+  let ripplesAvailable = !!($.fn && $.fn.ripples);
+  if (ripplesAvailable) {
+    try {
+      $('.banner').ripples({
+        imageUrl: 'assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
+        resolution: rippleConfig.resolution,
+        dropRadius: rippleConfig.dropRadius,
+        perturbance: rippleConfig.perturbance,
+        interactive: rippleConfig.interactive,
+        crossOrigin: rippleConfig.crossOrigin
+      });
+    } catch (err) {
+      // ripples failed (e.g., WebGL not available) — disable gracefully
+      console.warn('jQuery.ripples init failed:', err && err.message);
+      ripplesAvailable = false;
+    }
+  } else {
+    console.warn('jQuery.ripples plugin not found — skipping ripples init.');
+  }
 
   // ==================== 무중력 상태의 글자 물리 ====================
   const letters = document.querySelectorAll('.letter');
@@ -35,7 +46,7 @@ $(document).ready(function() {
       const rect = banner.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      $('.banner').ripples('showDrop', x, y, 25, 0.08);
+      if (ripplesAvailable) $('.banner').ripples('showDrop', x, y, 25, 0.08);
     });
 
     letter.addEventListener('touchstart', (event) => {
@@ -44,7 +55,7 @@ $(document).ready(function() {
       const rect = banner.getBoundingClientRect();
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
-      $('.banner').ripples('showDrop', x, y, 25, 0.08);
+      if (ripplesAvailable) $('.banner').ripples('showDrop', x, y, 25, 0.08);
     }, { passive: true });
   });
 
@@ -228,4 +239,92 @@ $(document).ready(function() {
       lastTapY = currentY;
     }
   }, { passive: false });
+
+  // ------------------- Mouse rainbow overlay -------------------
+  const rainbowEl = document.createElement('div');
+  rainbowEl.className = 'mouse-rainbow';
+  document.body.appendChild(rainbowEl);
+
+  let rrX = window.innerWidth / 2;
+  let rrY = window.innerHeight / 2;
+  let rafId = null;
+
+  function updateRainbowBackground(x, y) {
+    // subtle rainbow radial gradient centered at pointer
+    const colors = [
+      'rgba(255,0,128,0.06) 0%',
+      'rgba(255,160,0,0.04) 22%',
+      'rgba(255,255,0,0.035) 40%',
+      'rgba(0,240,200,0.03) 60%',
+      'rgba(0,128,255,0.02) 80%',
+      'transparent 100%'
+    ].join(', ');
+    rainbowEl.style.background = `radial-gradient(circle at ${x}px ${y}px, ${colors})`;
+  }
+
+  function scheduleRainbow(x, y) {
+    rrX = x; rrY = y;
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      updateRainbowBackground(rrX, rrY);
+      rafId = null;
+    });
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    scheduleRainbow(e.clientX, e.clientY);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    scheduleRainbow(t.clientX, t.clientY);
+  }, { passive: true });
+
+  // ------------------- Scroll-driven background transition -------------------
+  const root = document.documentElement;
+  const getCssVar = (name, fallback) => getComputedStyle(root).getPropertyValue(name).trim() || fallback;
+
+  function hexToRgb(hex) {
+    hex = hex.replace('#','');
+    if (hex.length === 3) hex = hex.split('').map(c => c+c).join('');
+    const num = parseInt(hex,16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  }
+
+  function rgbToHex(r,g,b){
+    const toHex = (v) => ('0'+Math.round(v).toString(16)).slice(-2);
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  function lerp(a,b,t){ return a + (b-a)*t; }
+
+  function lerpColor(hexA, hexB, t){
+    const a = hexToRgb(hexA.replace(/\s/g,''));
+    const b = hexToRgb(hexB.replace(/\s/g,''));
+    const r = lerp(a[0], b[0], t);
+    const g = lerp(a[1], b[1], t);
+    const bl = lerp(a[2], b[2], t);
+    return rgbToHex(r,g,bl);
+  }
+
+  const dawn = getCssVar('--bg-dawn', '#a6c8ff');
+  const sunrise = getCssVar('--bg-sunrise', '#ffd9a8');
+  const bannerEl = document.querySelector('.banner');
+
+  function updateBackgroundByScroll(){
+    if (!bannerEl) return;
+    const scrollY = window.scrollY || window.pageYOffset;
+    const start = bannerEl.offsetTop + bannerEl.offsetHeight; // begin after hero
+    const end = Math.max(start + 1, document.body.scrollHeight - window.innerHeight); // page end range
+    const t = Math.min(1, Math.max(0, (scrollY - start) / (end - start)));
+    const color = lerpColor(dawn, sunrise, t);
+    root.style.setProperty('--bg-color', color);
+  }
+
+  window.addEventListener('scroll', () => {
+    requestAnimationFrame(updateBackgroundByScroll);
+  }, { passive: true });
+
+  // init
+  updateBackgroundByScroll();
 });
