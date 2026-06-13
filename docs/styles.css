@@ -82,19 +82,24 @@ body.hero-locked .double-tap-hint {
 .double-tap-hint .hint-text { display: inline-block; }
 .double-tap-hint .scroll-down {
   display: none;
-  margin-left: 8px;
   margin-top: 8px;
-  background: transparent;
+  background: rgba(255,255,255,0.06);
   border: none;
   color: rgba(255,255,255,0.95);
   font-size: 1.35rem;
   line-height: 1;
-  padding: 6px 8px;
-  border-radius: 10px;
+  padding: 10px 12px; /* larger tap area */
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
   transform-origin: center;
+  touch-action: manipulation;
 }
 
 @keyframes arrow-bounce {
@@ -106,9 +111,10 @@ body.hero-locked .double-tap-hint {
 @media (max-width: 900px) {
   .double-tap-hint { font-size: 0.95rem; }
   .double-tap-hint .scroll-down {
-    display: inline-block;
+    display: inline-flex;
     opacity: 0.95;
     animation: arrow-bounce 1.6s ease-in-out infinite;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
   }
 }
 
