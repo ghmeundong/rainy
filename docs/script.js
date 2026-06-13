@@ -393,7 +393,7 @@ $(document).ready(function() {
       });
     }
 
-    (async function initRainy() {
+    async function initRainy() {
       // ensure canvas element exists and is sized to image before library init
       try {
         const DPR = window.devicePixelRatio || 1;
@@ -588,7 +588,13 @@ $(document).ready(function() {
           fallbackRaf = requestAnimationFrame(renderLoop);
         }(leftCanvas, leftImg));
       }
-    })();
+    }
+
+    if (leftImg.complete) {
+      initRainy();
+    } else {
+      leftImg.addEventListener('load', initRainy, { once: true });
+    }
   }
 });
 
