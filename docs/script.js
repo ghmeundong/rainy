@@ -347,6 +347,40 @@ $(document).ready(function() {
   if (leftPortrait) {
     const leftImg = leftPortrait.querySelector('img');
     const leftCanvas = leftPortrait.querySelector('.rainy-canvas');
+    let rainEngine = null;
+    let fallbackRaf = null;
+    let fallbackActive = true;
+    let portraitVisible = true;
+    let fallbackLoopFn = null;
+
+    function setRainyActive(active) {
+      fallbackActive = active;
+      if (rainEngine) {
+        if (active) {
+          rainEngine.resume?.();
+        } else {
+          rainEngine.pause?.();
+        }
+      }
+      if (!fallbackActive && fallbackRaf) {
+        cancelAnimationFrame(fallbackRaf);
+        fallbackRaf = null;
+      } else if (fallbackActive && fallbackLoopFn && !fallbackRaf) {
+        fallbackRaf = requestAnimationFrame(fallbackLoopFn);
+      }
+    }
+
+    const portraitObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        portraitVisible = entry.intersectionRatio > 0;
+        setRainyActive(portraitVisible && document.visibilityState === 'visible');
+      });
+    }, { threshold: 0.01 });
+    portraitObserver.observe(leftPortrait);
+
+    document.addEventListener('visibilitychange', () => {
+      setRainyActive(portraitVisible && document.visibilityState === 'visible');
+    });
 
     function loadScript(url) {
       return new Promise((resolve, reject) => {
@@ -408,13 +442,16 @@ $(document).ready(function() {
             const DPR = window.devicePixelRatio || 1;
             const imgW = Math.max(1, leftImg.clientWidth);
             const imgH = Math.max(1, leftImg.clientHeight);
+            const hardwareConcurrency = navigator.hardwareConcurrency || 4;
+            const lowPerf = hardwareConcurrency < 4 || DPR > 2.5 || (isMobile && hardwareConcurrency <= 2);
+            const targetRDFps = isMobile ? (lowPerf ? 12 : 18) : (lowPerf ? 14 : 20);
             const rdOptions = {
               image: leftImg,
               canvas: leftCanvas,
               opacity: 0.9,
               blur: 6,
               enableSizeChange: true,
-              fps: isMobile ? 18 : 20,
+              fps: targetRDFps,
               // give the library physical pixel dimensions so it creates high-res buffers
               width: Math.round(imgW * DPR),
               height: Math.round(imgH * DPR),
@@ -429,7 +466,8 @@ $(document).ready(function() {
             try { engine = new Rainy(leftImg, leftCanvas); } catch (err2) { engine = null; }
           }
 
-            if (engine) {
+          if (engine) {
+            rainEngine = engine;
             try {
               // Tweak options so drops are smaller and will flow (lower gravity threshold)
               try { engine.options = engine.options || {}; } catch (e) { engine.options = {}; }
@@ -443,8 +481,9 @@ $(document).ready(function() {
               if (typeof engine.rain === 'function') {
                 // presets: [baseRadius, variance, probability]
                 // use small base radius and small variance for fine drops
-                // increase interval to reduce CPU load
-                engine.rain([[1, 2, 0.9]], 60);
+                // increase interval to reduce CPU load (longer for lowPerf)
+                const rainInterval = lowPerf ? 120 : 60;
+                engine.rain([[1, 2, 0.9]], rainInterval);
               } else if (typeof engine.makeRain === 'function') {
                 engine.makeRain();
               }
@@ -461,6 +500,8 @@ $(document).ready(function() {
           if (!canvas || !img) return;
           const ctx = canvas.getContext('2d');
           const DPR = window.devicePixelRatio || 1;
+          const hardwareConcurrency = navigator.hardwareConcurrency || 4;
+          const lowPerf = hardwareConcurrency < 4 || DPR > 2.5 || (isMobile && hardwareConcurrency <= 2);
           function resize() {
             // Set canvas physical pixels and keep CSS size to image size
             const w = Math.max(1, img.clientWidth);
@@ -472,10 +513,13 @@ $(document).ready(function() {
             // scale drawing so 1 unit = 1 CSS pixel
             ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
           }
-          window.addEventListener('resize', resize); resize();
+          let resizeTimeout = null;
+          function debouncedResize() { clearTimeout(resizeTimeout); resizeTimeout = setTimeout(resize, 150); }
+          window.addEventListener('resize', debouncedResize); resize();
 
           const drops = [];
-          const maxDrops = 100;
+          const maxDrops = lowPerf ? 40 : 100;
+          const spawnInterval = lowPerf ? 240 : 120; // ms
           function addDrop() {
             const cssW = Math.max(1, canvas.clientWidth || img.clientWidth);
             // smaller drops with a little horizontal drift (coords in CSS pixels)
@@ -483,9 +527,12 @@ $(document).ready(function() {
           }
 
           let lastAdd = 0;
+          let lastFrameTime = 0;
+          const frameInterval = 1000 / (lowPerf ? 20 : 30); // target fps for fallback
+          let cleanupInterval = null;
           function loop(t) {
             // add drops at a lower rate and cap total drops
-            if ((!lastAdd || t - lastAdd > 120) && drops.length < maxDrops) { addDrop(); lastAdd = t; }
+            if ((!lastAdd || t - lastAdd > spawnInterval) && drops.length < maxDrops) { addDrop(); lastAdd = t; }
             // clear using CSS pixel dimensions
             const DPR = window.devicePixelRatio || 1;
             const lw = canvas.width / DPR;
@@ -502,23 +549,57 @@ $(document).ready(function() {
               ctx.fillStyle = `rgba(255,255,255,${alpha})`;
               ctx.ellipse(d.x, d.y, d.r, d.r * 1.3, 0, 0, Math.PI * 2);
               ctx.fill();
-              // streak trailing effect proportional to fall speed
-              const streakLen = Math.min(18, 4 + d.vy * 6);
+              // streak trailing effect proportional to fall speed (kept light)
+              const streakLen = Math.min(12, 3 + d.vy * 4);
               ctx.beginPath();
-              ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.07})`;
-              ctx.lineWidth = Math.max(0.6, d.r * 0.6);
-              ctx.moveTo(d.x, d.y - d.vy * 0.6);
+              ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.06})`;
+              ctx.lineWidth = Math.max(0.5, d.r * 0.5);
+              ctx.moveTo(d.x, d.y - d.vy * 0.5);
               ctx.lineTo(d.x + d.vx * streakLen, d.y + streakLen);
               ctx.stroke();
 
               // remove off-canvas drops
               if (d.y > lh + 30 || d.x < -30 || d.x > lw + 30) drops.splice(i, 1);
             }
-            requestAnimationFrame(loop);
           }
-          requestAnimationFrame(loop);
+          function renderLoop(t) {
+            if (!fallbackActive) {
+              // stop cleanup when inactive
+              if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
+              fallbackRaf = null;
+              return;
+            }
+            if (!lastFrameTime) lastFrameTime = t;
+            const elapsed = t - lastFrameTime;
+            if (elapsed >= frameInterval) {
+              loop(t);
+              lastFrameTime = t - (elapsed % frameInterval);
+            }
+            // ensure cleanup interval running
+            if (!cleanupInterval) {
+              cleanupInterval = setInterval(() => {
+                try { if (drops.length > maxDrops) drops.splice(0, drops.length - maxDrops); } catch (e) {}
+              }, 10000);
+            }
+            fallbackRaf = requestAnimationFrame(renderLoop);
+          }
+
+          fallbackLoopFn = renderLoop;
+          fallbackRaf = requestAnimationFrame(renderLoop);
         }(leftCanvas, leftImg));
       }
     })();
   }
+});
+
+// Scroll-down button behavior: tap to scroll down a bit (mobile)
+document.addEventListener('DOMContentLoaded', () => {
+  const scrollBtn = document.querySelector('.double-tap-hint .scroll-down');
+  if (!scrollBtn) return;
+  scrollBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    // small smooth scroll down (60% of viewport)
+    const amount = Math.round(window.innerHeight * 0.6);
+    window.scrollBy({ top: amount, left: 0, behavior: 'smooth' });
+  }, { passive: true });
 });

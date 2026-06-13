@@ -63,15 +63,53 @@ body.hero-locked {
   font-weight: 500;
   text-align: center;
   letter-spacing: 0.02em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.2s ease;
 }
 
 body.hero-locked .double-tap-hint {
   opacity: 1;
   visibility: visible;
+}
+
+/* Scroll-down button inside the double-tap hint (mobile only) */
+.double-tap-hint .hint-text { display: inline-block; }
+.double-tap-hint .scroll-down {
+  display: none;
+  margin-left: 8px;
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.95);
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 10px;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  transform-origin: center;
+}
+
+@keyframes arrow-bounce {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+  100% { transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .double-tap-hint { font-size: 0.95rem; }
+  .double-tap-hint .scroll-down {
+    display: inline-block;
+    opacity: 0.95;
+    animation: arrow-bounce 1.6s ease-in-out infinite;
+  }
 }
 
 .floating-text {
