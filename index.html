@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Is it raining?</title>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <main>
+    <section class="banner">
+      <div class="floating-text">
+        <span class="letter" data-char="e">e</span>
+        <span class="letter" data-char="s">s</span>
+        <span class="letter" data-char="c">c</span>
+        <span class="letter" data-char="a">a</span>
+        <span class="letter" data-char="m">m</span>
+        <span class="letter" data-char="p">p</span>
+        <span class="letter" data-char="a">a</span>
+        <span class="letter" data-char="r">r</span>
+      </div>
+      <div class="double-tap-hint">
+        <span class="hint-text">Double tap to continue</span>
+        <button class="scroll-down" aria-label="Scroll down">∨</button>
+      </div>
+    </section>
+    <section class="gallery">
+      <div class="quote-card">
+        <div class="quote-inner">
+          <p>The sun after the rain is much beautiful than the sun before the rain.</p>
+        </div>
+      </div>
+      <div class="portrait-image" id="left-portrait">
+        <img src="/assets/img/kristaps-ungurs-FK0X8zKQP-8-unsplash.jpg" alt="Portfolio image">
+        <canvas class="rainy-canvas" aria-hidden="true"></canvas>
+      </div>
+      <div class="portrait-image">
+        <img src="/assets/img/vojtech-bruzek-zMl9PjGFPWg-unsplash.jpg" alt="Portfolio image">
+      </div>
+    </section>
+  </main>
+  <script src="src/jquery.min.js" defer></script>
+  <script src="src/jquery.ripples.min.js" defer></script>
+  <script src="src/rainyday.js" defer></script>
+  <script src="src/main.js" defer></script>
+</body>
+</html>
