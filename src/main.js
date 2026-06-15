@@ -19,7 +19,7 @@ $(document).ready(function() {
   if (ripplesAvailable) {
       try {
       $('.banner').ripples({
-        imageUrl: 'assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
+        imageUrl: './assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
         resolution: rippleConfig.resolution,
         dropRadius: rippleConfig.dropRadius,
         perturbance: rippleConfig.perturbance,
