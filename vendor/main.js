@@ -1,343 +1,4 @@
-import './style.css';
-import $ from 'jquery';
-
-window.$ = window.jQuery = $;
-
-const renderHooks = [];
-let masterFrameId = null;
-let gallerySceneInitialized = false;
-let portraitSceneInitialized = false;
-let bannerVisible = false;
-let ripplesPluginLoaded = false;
-let ripplesAvailable = false;
-
-async function loadRipplesPlugin() {
-  if (ripplesPluginLoaded) return ripplesAvailable;
-  ripplesPluginLoaded = true;
-
-  try {
-    await import('jquery.ripples');
-    ripplesAvailable = !!($.fn && $.fn.ripples);
-  } catch (err) {
-    console.warn('Failed to load jquery.ripples:', err && err.message);
-    ripplesAvailable = false;
-  }
-
-  return ripplesAvailable;
-}
-
-function startMasterLoop() {
-  if (masterFrameId !== null || document.hidden) return;
-  masterFrameId = requestAnimationFrame(masterLoop);
-}
-
-function stopMasterLoop() {
-  if (masterFrameId !== null) {
-    cancelAnimationFrame(masterFrameId);
-    masterFrameId = null;
-  }
-}
-
-function masterLoop(timestamp) {
-  renderHooks.forEach((hook) => hook(timestamp));
-  masterFrameId = requestAnimationFrame(masterLoop);
-}
-
-function addRenderHook(fn) {
-  if (!renderHooks.includes(fn)) {
-    renderHooks.push(fn);
-  }
-  if (renderHooks.length > 0) startMasterLoop();
-}
-
-function removeRenderHook(fn) {
-  const index = renderHooks.indexOf(fn);
-  if (index !== -1) renderHooks.splice(index, 1);
-  if (renderHooks.length === 0) stopMasterLoop();
-}
-
-function onVisibilityChange() {
-  if (document.hidden) {
-    stopMasterLoop();
-  } else if (renderHooks.length > 0) {
-    startMasterLoop();
-  }
-}
-
-document.addEventListener('visibilitychange', onVisibilityChange, { passive: true });
-
-// ==================== Three.js 3D Rain for Gallery Section ====================
-
-async function initThreeScene() {
-  const THREE = await import('three');
-  const gallery3D = document.querySelector('.gallery');
-  const galleryCanvas = gallery3D?.querySelector('.gallery-rain-canvas');
-
-  if (!(gallery3D && galleryCanvas)) return;
-  const rainFloor = -30;
-  const rainCeil = 150;
-  
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(
-    75,
-    gallery3D.clientWidth / gallery3D.clientHeight,
-    0.1,
-    1000
-  );
-  const renderer = new THREE.WebGLRenderer({ canvas: galleryCanvas, alpha: true });
-  
-  renderer.setSize(gallery3D.clientWidth, gallery3D.clientHeight);
-  renderer.setClearColor(0x000000, 0);
-  camera.position.z = 15;
-
-  // Rain as line trails with history tracking
-  const rainCount = 650;
-  const trailLength = 3; // Store previous positions for trail effect
-  const rainPositions = new Float32Array(rainCount * 3);
-  const rainVelocities = new Float32Array(rainCount * 3);
-  const rainTrails = Array(rainCount).fill(0).map(() => Array(trailLength).fill({x: 0, y: 0, z: 0}));
-
-  for (let i = 0; i < rainCount; i++) {
-    const x = (Math.random() - 0.5) * 100;
-    const y = rainCeil - Math.random() * (rainCeil - rainFloor);
-    const z = (Math.random() - 0.5) * 50;
-    
-    rainPositions[i * 3] = x;
-    rainPositions[i * 3 + 1] = y;
-    rainPositions[i * 3 + 2] = z;
-
-    rainVelocities[i * 3] = (Math.random() - 0.5) * 0.15;
-    rainVelocities[i * 3 + 1] = -0.5 - Math.random() * 0.8;
-    rainVelocities[i * 3 + 2] = 0;
-    
-    // Initialize trail
-    for (let t = 0; t < trailLength; t++) {
-      rainTrails[i][t] = {x, y, z};
-    }
-  }
-
-  const rainGeometry = new THREE.BufferGeometry();
-  rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
-
-  // Use PointsMaterial for simple, visible rain particles with glow
-  const rainMaterial = new THREE.PointsMaterial({
-    color: 0xccddff,
-    size: 0.3,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.85,
-    fog: false
-  });
-
-  const rainMesh = new THREE.Points(rainGeometry, rainMaterial);
-  scene.add(rainMesh);
-
-  // Create line segments for trails behind each raindrop
-  const trailGeometry = new THREE.BufferGeometry();
-  const maxTrailPositions = rainCount * trailLength * 3;
-  const trailPositions = new Float32Array(maxTrailPositions);
-  trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-  
-  const trailMaterial = new THREE.LineBasicMaterial({
-    color: 0xaabbff,
-    linewidth: 1,
-    transparent: true,
-    opacity: 0.5,
-    fog: false
-  });
-
-  const trailMesh = new THREE.LineSegments(trailGeometry, trailMaterial);
-  scene.add(trailMesh);
-
-  let rainIntensity = 1.0;
-
-  function updateRain() {
-    const posAttr = rainGeometry.getAttribute('position');
-    const posArray = posAttr.array;
-    const trailAttr = trailGeometry.getAttribute('position');
-    const trailArray = trailAttr.array;
-    let trailIndex = 0;
-
-    for (let i = 0; i < rainCount; i++) {
-      posArray[i * 3 + 1] += rainVelocities[i * 3 + 1] * rainIntensity;
-      posArray[i * 3] += rainVelocities[i * 3] * rainIntensity;
-
-      const posX = posArray[i * 3];
-      const posY = posArray[i * 3 + 1];
-      const posZ = posArray[i * 3 + 2];
-
-      rainTrails[i].unshift({x: posX, y: posY, z: posZ});
-      if (rainTrails[i].length > trailLength) rainTrails[i].pop();
-
-      if (rainTrails[i].length > 1) {
-        for (let t = 0; t < rainTrails[i].length - 1; t++) {
-          trailArray[trailIndex++] = rainTrails[i][t].x;
-          trailArray[trailIndex++] = rainTrails[i][t].y;
-          trailArray[trailIndex++] = rainTrails[i][t].z;
-          trailArray[trailIndex++] = rainTrails[i][t + 1].x;
-          trailArray[trailIndex++] = rainTrails[i][t + 1].y;
-          trailArray[trailIndex++] = rainTrails[i][t + 1].z;
-        }
-      }
-
-      if (posY < rainFloor) {
-        createSplash(posX, rainIntensity);
-        posArray[i * 3 + 1] = rainCeil;
-        posArray[i * 3] = (Math.random() - 0.5) * 100;
-        rainTrails[i] = Array(trailLength).fill({x: posArray[i * 3], y: rainCeil, z: posArray[i * 3 + 2]});
-      }
-    }
-    
-    posAttr.needsUpdate = true;
-    trailAttr.needsUpdate = true;
-    trailGeometry.setDrawRange(0, trailIndex / 3);
-  }
-
-  // Splash particles for ground impact effect
-  const splashCount = 100;
-  const splashPositions = new Float32Array(splashCount * 3);
-  const splashVelocities = new Float32Array(splashCount * 3);
-  const splashLifes = new Float32Array(splashCount);
-  
-  for (let i = 0; i < splashCount; i++) {
-    splashPositions[i * 3] = 0;
-    splashPositions[i * 3 + 1] = rainFloor + 2;
-    splashPositions[i * 3 + 2] = 0;
-    splashVelocities[i * 3] = 0;
-    splashVelocities[i * 3 + 1] = 0;
-    splashVelocities[i * 3 + 2] = 0;
-    splashLifes[i] = 0;
-  }
-
-  const splashGeometry = new THREE.BufferGeometry();
-  splashGeometry.setAttribute('position', new THREE.BufferAttribute(splashPositions, 3));
-  splashGeometry.setAttribute('velocity', new THREE.BufferAttribute(splashVelocities, 3));
-  splashGeometry.setAttribute('life', new THREE.BufferAttribute(splashLifes, 1));
-
-  const splashMaterial = new THREE.PointsMaterial({
-    color: 0xddddff,
-    size: 0.15,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.6,
-    fog: false
-  });
-
-  const splashParticles = new THREE.Points(splashGeometry, splashMaterial);
-  scene.add(splashParticles);
-
-  const splashPosAttribute = splashGeometry.getAttribute('position');
-  const splashVelAttribute = splashGeometry.getAttribute('velocity');
-  const splashLifeAttribute = splashGeometry.getAttribute('life');
-
-  let nextSplashIndex = 0;
-
-  function createSplash(x, intensity) {
-    const splashNum = Math.floor(3 * intensity);
-    for (let i = 0; i < splashNum; i++) {
-      splashPosAttribute.array[nextSplashIndex * 3] = x + (Math.random() - 0.5) * 3;
-      splashPosAttribute.array[nextSplashIndex * 3 + 1] = rainFloor + 2;
-      splashPosAttribute.array[nextSplashIndex * 3 + 2] = (Math.random() - 0.5) * 5;
-
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 2 + Math.random() * 3;
-      splashVelAttribute.array[nextSplashIndex * 3] = Math.cos(angle) * speed;
-      splashVelAttribute.array[nextSplashIndex * 3 + 1] = 1 + Math.random() * 1.5;
-      splashVelAttribute.array[nextSplashIndex * 3 + 2] = Math.sin(angle) * speed;
-      
-      splashLifeAttribute.array[nextSplashIndex] = 1.0;
-      nextSplashIndex = (nextSplashIndex + 1) % splashCount;
-    }
-    splashPosAttribute.needsUpdate = true;
-    splashVelAttribute.needsUpdate = true;
-    splashLifeAttribute.needsUpdate = true;
-  }
-
-  function animateFrame() {
-    updateRain();
-
-    const splashPos = splashPosAttribute.array;
-    const splashVel = splashVelAttribute.array;
-    const splashLife = splashLifeAttribute.array;
-
-    for (let i = 0; i < splashCount; i++) {
-      if (splashLife[i] > 0) {
-        splashPos[i * 3] += splashVel[i * 3] * 0.05;
-        splashPos[i * 3 + 1] += splashVel[i * 3 + 1] * 0.05;
-        splashPos[i * 3 + 2] += splashVel[i * 3 + 2] * 0.05;
-        splashVel[i * 3 + 1] -= 0.08; // gravity
-        splashLife[i] -= 0.02;
-      }
-    }
-    splashPosAttribute.needsUpdate = true;
-
-    renderer.render(scene, camera);
-  }
-
-  let galleryRenderHook = null;
-  const galleryObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      const visible = entry.intersectionRatio > 0;
-      if (visible && !galleryRenderHook) {
-        galleryRenderHook = () => {
-          if (document.hidden) return;
-          animateFrame();
-        };
-        addRenderHook(galleryRenderHook);
-      } else if (!visible && galleryRenderHook) {
-        removeRenderHook(galleryRenderHook);
-        galleryRenderHook = null;
-      }
-    });
-  }, { threshold: 0.1 });
-  galleryObserver.observe(gallery3D);
-
-  // Sync canvas resize with gallery
-  const galleryResizeObserver = new ResizeObserver(() => {
-    const width = gallery3D.clientWidth;
-    const height = gallery3D.clientHeight;
-    renderer.setSize(width, height);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-  });
-  galleryResizeObserver.observe(gallery3D);
-
-  // Scroll-driven rain intensity
-  window.addEventListener('scroll', () => {
-    const bannerEl = document.querySelector('.banner');
-    const scrollY = window.scrollY || window.pageYOffset;
-    const bannerBottom = bannerEl?.offsetTop + bannerEl?.offsetHeight || 0;
-    const galleryStart = bannerBottom;
-    const documentHeight = document.documentElement.scrollHeight;
-    const windowHeight = window.innerHeight;
-    const maxScroll = documentHeight - windowHeight;
-    const scrollFromGallery = Math.max(0, scrollY - galleryStart);
-    const rainMaxScroll = Math.max(100, maxScroll - galleryStart);
-
-    rainIntensity = Math.max(0, 1 - scrollFromGallery / rainMaxScroll);
-    rainMaterial.opacity = 0.85 * rainIntensity;
-    trailMaterial.opacity = 0.5 * rainIntensity;
-    splashMaterial.opacity = 0.6 * rainIntensity;
-  }, { passive: true });
-}
-
-const gallerySection = document.querySelector('.gallery');
-if (gallerySection) {
-  const galleryInitObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.intersectionRatio > 0 && !gallerySceneInitialized) {
-        gallerySceneInitialized = true;
-        initThreeScene();
-      }
-    });
-  }, { threshold: 0.01 });
-  galleryInitObserver.observe(gallerySection);
-}
-
 // ==================== jQuery.ripples 효과 설정 ====================
-
-const rippleBackgroundImage = `${import.meta.env.BASE_URL}img/egor-litvinov-rF1goYJuxbY-unsplash.jpg`;
-const rainydayScriptUrl = `${import.meta.env.BASE_URL}js/rainyday.js`;
 
 // 물결 효과 설정 매개변수 (WebGL 기반)
 const isMobile = window.matchMedia('(max-width: 900px)').matches;
@@ -352,17 +13,13 @@ const rippleConfig = {
 
 // ==================== 초기화 ====================
 
-$(document).ready(async function() {
+$(document).ready(function() {
   // 배너에 jQuery.ripples 효과 적용 (안전하게 초기화)
-  ripplesAvailable = !!($.fn && $.fn.ripples);
-  if (!ripplesAvailable) {
-    ripplesAvailable = await loadRipplesPlugin();
-  }
-
+  let ripplesAvailable = !!($.fn && $.fn.ripples);
   if (ripplesAvailable) {
-    try {
+      try {
       $('.banner').ripples({
-        imageUrl: rippleBackgroundImage,
+        imageUrl: '/assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
         resolution: rippleConfig.resolution,
         dropRadius: rippleConfig.dropRadius,
         perturbance: rippleConfig.perturbance,
@@ -370,11 +27,12 @@ $(document).ready(async function() {
         crossOrigin: rippleConfig.crossOrigin
       });
     } catch (err) {
+      // ripples failed (e.g., WebGL not available) — disable gracefully
       console.warn('jQuery.ripples init failed:', err && err.message);
       ripplesAvailable = false;
     }
   } else {
-    console.warn('jQuery.ripples plugin not available; skipping ripples init.');
+    console.warn('jQuery.ripples plugin not found — skipping ripples init.');
   }
 
   // ==================== 무중력 상태의 글자 물리 ====================
@@ -405,9 +63,6 @@ $(document).ready(async function() {
   let mouseX = 0;
   let mouseY = 0;
   let isOnBanner = false;
-  let isTouchActive = false;
-  let touchX = 0;
-  let touchY = 0;
   
   banner.addEventListener('mouseenter', () => {
     isOnBanner = true;
@@ -422,25 +77,6 @@ $(document).ready(async function() {
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
   });
-
-  // 터치 시작
-  banner.addEventListener('touchstart', (e) => {
-    isTouchActive = true;
-    if (e.touches.length > 0) {
-      const rect = banner.getBoundingClientRect();
-      touchX = e.touches[0].clientX - rect.left;
-      touchY = e.touches[0].clientY - rect.top;
-    }
-  }, { passive: true });
-
-  // 터치 중 움직임 - 부드럽게 밀려나가기
-  banner.addEventListener('touchmove', (e) => {
-    if (e.touches.length > 0) {
-      const rect = banner.getBoundingClientRect();
-      touchX = e.touches[0].clientX - rect.left;
-      touchY = e.touches[0].clientY - rect.top;
-    }
-  }, { passive: true });
   
   // 각 글자의 물리 상태
   const letterStates = Array.from(letters).map(() => ({
@@ -469,26 +105,23 @@ $(document).ready(async function() {
   
   // 물리 시뮬레이션 루프
   function animateLetters() {
-    if (!bannerVisible || document.hidden) return;
     const rect = banner.getBoundingClientRect();
     
     letters.forEach((letter, index) => {
       const state = letterStates[index];
       
+      // 글자 크기 기반 히트박스 반경 계산
       const letterRadius = Math.max(letter.offsetWidth, letter.offsetHeight) * 0.55;
       const repulseRadius = letterRadius + 18;
-      const currentX = isTouchActive ? touchX : mouseX;
-      const currentY = isTouchActive ? touchY : mouseY;
-      const shouldRepulse = isTouchActive || isOnBanner;
 
-      if (shouldRepulse) {
-        const dx = state.x - currentX;
-        const dy = state.y - currentY;
+      // 마우스 피하기
+      if (isOnBanner) {
+        const dx = state.x - mouseX;
+        const dy = state.y - mouseY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < repulseRadius && distance > 1) {
-          const forceStrength = isTouchActive ? 0.2 : 0.4;
-          const force = (1 - distance / repulseRadius) * forceStrength;
+          const force = (1 - distance / repulseRadius) * 0.4; // 물이 밀어내는 느낌
           const angle = Math.atan2(dy, dx);
           
           state.vx += Math.cos(angle) * force;
@@ -496,6 +129,7 @@ $(document).ready(async function() {
         }
       }
       
+      // 글자 간 딱딱한 충돌 처리
       letters.forEach((otherLetter, j) => {
         if (index === j) return;
         const other = letterStates[j];
@@ -527,27 +161,31 @@ $(document).ready(async function() {
         }
       });
       
+      // 무작위 부유 움직임 추가
       state.vx += (Math.random() - 0.5) * 0.015;
       state.vy += (Math.random() - 0.5) * 0.015;
+      
+      // 마찰
       state.vx *= 0.98;
       state.vy *= 0.98;
+      
+      // 속도 적용
       state.x += state.vx;
       state.y += state.vy;
+      
+      // 배너 전체 범위 내로 제한
       state.x = Math.max(25, Math.min(rect.width - 25, state.x));
       state.y = Math.max(25, Math.min(rect.height - 25, state.y));
+      
+      // 위치 적용
       letter.style.left = `${state.x}px`;
       letter.style.top = `${state.y}px`;
     });
+    
+    requestAnimationFrame(animateLetters);
   }
-
-  const bannerObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      bannerVisible = entry.intersectionRatio > 0;
-    });
-  }, { threshold: 0.01 });
-  bannerObserver.observe(banner);
-
-  addRenderHook(() => animateLetters());
+  
+  animateLetters();
 
   // 모바일에서 히어로 화면을 처음 고정하고 더블 탭으로 해제
   const mobileLockMedia = window.matchMedia('(max-width: 900px)');
@@ -580,8 +218,6 @@ $(document).ready(async function() {
   });
 
   banner.addEventListener('touchend', (event) => {
-    isTouchActive = false;
-    
     if (!heroLocked) return;
     
     const now = Date.now();
@@ -715,35 +351,7 @@ $(document).ready(async function() {
     let fallbackRaf = null;
     let fallbackActive = true;
     let portraitVisible = true;
-    let portraitLoaded = leftImg?.complete || false;
     let fallbackLoopFn = null;
-    let resizeSyncTimeout = null;
-
-    function syncRainCanvasSize() {
-      if (!leftImg || !leftCanvas) return;
-      const DPR = window.devicePixelRatio || 1;
-      const imgW = Math.max(1, leftImg.clientWidth);
-      const imgH = Math.max(1, leftImg.clientHeight);
-      leftCanvas.style.width = imgW + 'px';
-      leftCanvas.style.height = imgH + 'px';
-      leftCanvas.width = Math.round(imgW * DPR);
-      leftCanvas.height = Math.round(imgH * DPR);
-      const ctx = leftCanvas.getContext('2d');
-      if (ctx) ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      if (rainEngine && typeof rainEngine.checkSize === 'function') {
-        rainEngine.checkSize();
-      }
-    }
-
-    function debouncedSyncRainCanvasSize() {
-      clearTimeout(resizeSyncTimeout);
-      resizeSyncTimeout = setTimeout(syncRainCanvasSize, 120);
-    }
-
-    const leftImgResizeObserver = new ResizeObserver(() => debouncedSyncRainCanvasSize());
-    if (leftImg) leftImgResizeObserver.observe(leftImg);
-
-    window.addEventListener('resize', debouncedSyncRainCanvasSize, { passive: true });
 
     function setRainyActive(active) {
       fallbackActive = active;
@@ -754,12 +362,11 @@ $(document).ready(async function() {
           rainEngine.pause?.();
         }
       }
-      if (fallbackLoopFn) {
-        if (active) {
-          addRenderHook(fallbackLoopFn);
-        } else {
-          removeRenderHook(fallbackLoopFn);
-        }
+      if (!fallbackActive && fallbackRaf) {
+        cancelAnimationFrame(fallbackRaf);
+        fallbackRaf = null;
+      } else if (fallbackActive && fallbackLoopFn && !fallbackRaf) {
+        fallbackRaf = requestAnimationFrame(fallbackLoopFn);
       }
     }
 
@@ -803,10 +410,10 @@ $(document).ready(async function() {
       } catch (e) {
         console.warn('[rainy] canvas sizing failed', e && e.message);
       }
-      // If the local rainyday.js is not already loaded, load the local fallback from public/js.
+      // If the local rainyday.js is already loaded (we add a script tag in index.html), prefer it
       if (!window.RainyDay && !window.rainyday && !window.Rainyday) {
         const cdns = [
-          rainydayScriptUrl,
+          'rainyday.js',
           'https://cdnjs.cloudflare.com/ajax/libs/rainyday/0.1.0/rainyday.min.js',
           'https://cdn.jsdelivr.net/npm/rainydayjs@0.0.1/rainyday.min.js',
           'https://unpkg.com/rainydayjs@latest/dist/rainyday.min.js'
@@ -838,7 +445,6 @@ $(document).ready(async function() {
             const hardwareConcurrency = navigator.hardwareConcurrency || 4;
             const lowPerf = hardwareConcurrency < 4 || DPR > 2.5 || (isMobile && hardwareConcurrency <= 2);
             const targetRDFps = isMobile ? (lowPerf ? 12 : 18) : (lowPerf ? 14 : 20);
-            syncRainCanvasSize();
             const rdOptions = {
               image: leftImg,
               canvas: leftCanvas,
@@ -876,7 +482,7 @@ $(document).ready(async function() {
                 // presets: [baseRadius, variance, probability]
                 // use small base radius and small variance for fine drops
                 // increase interval to reduce CPU load (longer for lowPerf)
-                const rainInterval = false ? 120 : 60;
+                const rainInterval = lowPerf ? 120 : 60;
                 engine.rain([[1, 2, 0.9]], rainInterval);
               } else if (typeof engine.makeRain === 'function') {
                 engine.makeRain();
@@ -896,70 +502,39 @@ $(document).ready(async function() {
           const DPR = window.devicePixelRatio || 1;
           const hardwareConcurrency = navigator.hardwareConcurrency || 4;
           const lowPerf = hardwareConcurrency < 4 || DPR > 2.5 || (isMobile && hardwareConcurrency <= 2);
+          function resize() {
+            // Set canvas physical pixels and keep CSS size to image size
+            const w = Math.max(1, img.clientWidth);
+            const h = Math.max(1, img.clientHeight);
+            canvas.width = Math.round(w * DPR);
+            canvas.height = Math.round(h * DPR);
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            // scale drawing so 1 unit = 1 CSS pixel
+            ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+          }
+          let resizeTimeout = null;
+          function debouncedResize() { clearTimeout(resizeTimeout); resizeTimeout = setTimeout(resize, 150); }
+          window.addEventListener('resize', debouncedResize); resize();
 
           const drops = [];
           const maxDrops = lowPerf ? 40 : 100;
           const spawnInterval = lowPerf ? 240 : 120; // ms
-          let previousWidth = Math.max(1, img.clientWidth);
-          let previousHeight = Math.max(1, img.clientHeight);
-          let resizeTimeout = null;
-
-          function resize() {
-            const newWidth = Math.max(1, img.clientWidth);
-            const newHeight = Math.max(1, img.clientHeight);
-            const widthScale = newWidth / previousWidth;
-            const heightScale = newHeight / previousHeight;
-            if (drops.length && (widthScale !== 1 || heightScale !== 1)) {
-              drops.forEach((d) => {
-                d.x = d.x * widthScale;
-                d.y = d.y * heightScale;
-                d.vx = d.vx * widthScale;
-                d.vy = d.vy * heightScale;
-                d.r = d.r * Math.sqrt(widthScale * heightScale);
-                d.x = Math.min(Math.max(d.x, 0), newWidth);
-                d.y = Math.min(Math.max(d.y, 0), newHeight);
-              });
-            }
-            previousWidth = newWidth;
-            previousHeight = newHeight;
-            canvas.width = Math.round(newWidth * DPR);
-            canvas.height = Math.round(newHeight * DPR);
-            canvas.style.width = newWidth + 'px';
-            canvas.style.height = newHeight + 'px';
-            ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-          }
-
-          function debouncedResize() {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(resize, 150);
-          }
-
-          window.addEventListener('resize', debouncedResize, { passive: true });
-          const fallbackImgObserver = new ResizeObserver(debouncedResize);
-          if (img) fallbackImgObserver.observe(img);
-          resize();
-
           function addDrop() {
             const cssW = Math.max(1, canvas.clientWidth || img.clientWidth);
-            drops.push({
-              x: Math.random() * cssW,
-              y: -6 - Math.random() * 10,
-              vx: (Math.random() - 0.5) * 0.3,
-              vy: 1.5 + Math.random() * 1.6,
-              r: 0.8 + Math.random() * 1.6
-            });
+            // smaller drops with a little horizontal drift (coords in CSS pixels)
+            drops.push({ x: Math.random() * cssW, y: -6 - Math.random() * 10, vx: (Math.random() - 0.5) * 0.3, vy: 1.5 + Math.random() * 1.6, r: 0.8 + Math.random() * 1.6 });
           }
 
           let lastAdd = 0;
           let lastFrameTime = 0;
           const frameInterval = 1000 / (lowPerf ? 20 : 30); // target fps for fallback
           let cleanupInterval = null;
-
           function loop(t) {
-            if ((!lastAdd || t - lastAdd > spawnInterval) && drops.length < maxDrops) {
-              addDrop();
-              lastAdd = t;
-            }
+            // add drops at a lower rate and cap total drops
+            if ((!lastAdd || t - lastAdd > spawnInterval) && drops.length < maxDrops) { addDrop(); lastAdd = t; }
+            // clear using CSS pixel dimensions
+            const DPR = window.devicePixelRatio || 1;
             const lw = canvas.width / DPR;
             const lh = canvas.height / DPR;
             ctx.clearRect(0, 0, lw, lh);
@@ -968,11 +543,13 @@ $(document).ready(async function() {
               d.x += d.vx;
               d.y += d.vy;
               d.vy += 0.045; // gravity
+              // draw small droplet
               ctx.beginPath();
               const alpha = Math.max(0, 0.22 - (d.y / lh) * 0.14);
               ctx.fillStyle = `rgba(255,255,255,${alpha})`;
               ctx.ellipse(d.x, d.y, d.r, d.r * 1.3, 0, 0, Math.PI * 2);
               ctx.fill();
+              // streak trailing effect proportional to fall speed (kept light)
               const streakLen = Math.min(12, 3 + d.vy * 4);
               ctx.beginPath();
               ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.06})`;
@@ -980,47 +557,44 @@ $(document).ready(async function() {
               ctx.moveTo(d.x, d.y - d.vy * 0.5);
               ctx.lineTo(d.x + d.vx * streakLen, d.y + streakLen);
               ctx.stroke();
+
+              // remove off-canvas drops
               if (d.y > lh + 30 || d.x < -30 || d.x > lw + 30) drops.splice(i, 1);
             }
           }
-
           function renderLoop(t) {
-            if (!fallbackActive) return;
+            if (!fallbackActive) {
+              // stop cleanup when inactive
+              if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
+              fallbackRaf = null;
+              return;
+            }
             if (!lastFrameTime) lastFrameTime = t;
             const elapsed = t - lastFrameTime;
             if (elapsed >= frameInterval) {
               loop(t);
               lastFrameTime = t - (elapsed % frameInterval);
             }
+            // ensure cleanup interval running
+            if (!cleanupInterval) {
+              cleanupInterval = setInterval(() => {
+                try { if (drops.length > maxDrops) drops.splice(0, drops.length - maxDrops); } catch (e) {}
+              }, 10000);
+            }
+            fallbackRaf = requestAnimationFrame(renderLoop);
           }
 
           fallbackLoopFn = renderLoop;
-          if (fallbackActive) {
-            addRenderHook(fallbackLoopFn);
-          }
+          fallbackRaf = requestAnimationFrame(renderLoop);
         }(leftCanvas, leftImg));
       }
     }
 
-    if (!portraitLoaded && leftImg) {
-      leftImg.addEventListener('load', () => {
-        portraitLoaded = true;
-      }, { once: true });
+    if (leftImg.complete) {
+      initRainy();
+    } else {
+      leftImg.addEventListener('load', initRainy, { once: true });
     }
-
-    const portraitInitObserver = new IntersectionObserver((entries) => {
-      entries.forEach(async (entry) => {
-        if (entry.intersectionRatio > 0 && !portraitSceneInitialized) {
-          portraitSceneInitialized = true;
-          if (portraitLoaded) {
-            await initRainy();
-          } else if (leftImg) {
-            leftImg.addEventListener('load', initRainy, { once: true });
-          }
-        }
-      });
-    }, { threshold: 0.01 });
-    portraitInitObserver.observe(leftPortrait);
   }
 });
 
