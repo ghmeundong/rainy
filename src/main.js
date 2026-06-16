@@ -63,6 +63,9 @@ $(document).ready(function() {
   let mouseX = 0;
   let mouseY = 0;
   let isOnBanner = false;
+  let isTouchActive = false;
+  let touchX = 0;
+  let touchY = 0;
   
   banner.addEventListener('mouseenter', () => {
     isOnBanner = true;
@@ -77,6 +80,25 @@ $(document).ready(function() {
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
   });
+
+  // 터치 시작
+  banner.addEventListener('touchstart', (e) => {
+    isTouchActive = true;
+    if (e.touches.length > 0) {
+      const rect = banner.getBoundingClientRect();
+      touchX = e.touches[0].clientX - rect.left;
+      touchY = e.touches[0].clientY - rect.top;
+    }
+  }, { passive: true });
+
+  // 터치 중 움직임 - 부드럽게 밀려나가기
+  banner.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 0) {
+      const rect = banner.getBoundingClientRect();
+      touchX = e.touches[0].clientX - rect.left;
+      touchY = e.touches[0].clientY - rect.top;
+    }
+  }, { passive: true });
   
   // 각 글자의 물리 상태
   const letterStates = Array.from(letters).map(() => ({
@@ -114,14 +136,20 @@ $(document).ready(function() {
       const letterRadius = Math.max(letter.offsetWidth, letter.offsetHeight) * 0.55;
       const repulseRadius = letterRadius + 18;
 
-      // 마우스 피하기
-      if (isOnBanner) {
-        const dx = state.x - mouseX;
-        const dy = state.y - mouseY;
+      // 터치 또는 마우스 피하기
+      const currentX = isTouchActive ? touchX : mouseX;
+      const currentY = isTouchActive ? touchY : mouseY;
+      const shouldRepulse = isTouchActive || isOnBanner;
+
+      if (shouldRepulse) {
+        const dx = state.x - currentX;
+        const dy = state.y - currentY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < repulseRadius && distance > 1) {
-          const force = (1 - distance / repulseRadius) * 0.4; // 물이 밀어내는 느낌
+          // 터치 중: 부드러운 힘, 마우스: 세운 힘
+          const forceStrength = isTouchActive ? 0.2 : 0.4;
+          const force = (1 - distance / repulseRadius) * forceStrength;
           const angle = Math.atan2(dy, dx);
           
           state.vx += Math.cos(angle) * force;
@@ -218,6 +246,8 @@ $(document).ready(function() {
   });
 
   banner.addEventListener('touchend', (event) => {
+    isTouchActive = false;
+    
     if (!heroLocked) return;
     
     const now = Date.now();
