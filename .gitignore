@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local vendor script fallbacks for offline/dev only
+public/js/

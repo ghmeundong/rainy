@@ -1,6 +1,13 @@
 import './style.css';
+import $ from 'jquery';
+import 'jquery.ripples';
+
+window.$ = window.jQuery = $;
 
 // ==================== jQuery.ripples 효과 설정 ====================
+
+const rippleBackgroundImage = `${import.meta.env.BASE_URL}img/egor-litvinov-rF1goYJuxbY-unsplash.jpg`;
+const rainydayScriptUrl = `${import.meta.env.BASE_URL}js/rainyday.js`;
 
 // 물결 효과 설정 매개변수 (WebGL 기반)
 const isMobile = window.matchMedia('(max-width: 900px)').matches;
@@ -21,7 +28,7 @@ $(document).ready(function() {
   if (ripplesAvailable) {
       try {
       $('.banner').ripples({
-        imageUrl: '/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
+        imageUrl: rippleBackgroundImage,
         resolution: rippleConfig.resolution,
         dropRadius: rippleConfig.dropRadius,
         perturbance: rippleConfig.perturbance,
@@ -442,10 +449,10 @@ $(document).ready(function() {
       } catch (e) {
         console.warn('[rainy] canvas sizing failed', e && e.message);
       }
-      // If the local rainyday.js is already loaded (we add a script tag in index.html), prefer it
+      // If the local rainyday.js is not already loaded, load the local fallback from public/js.
       if (!window.RainyDay && !window.rainyday && !window.Rainyday) {
         const cdns = [
-          'rainyday.js',
+          rainydayScriptUrl,
           'https://cdnjs.cloudflare.com/ajax/libs/rainyday/0.1.0/rainyday.min.js',
           'https://cdn.jsdelivr.net/npm/rainydayjs@0.0.1/rainyday.min.js',
           'https://unpkg.com/rainydayjs@latest/dist/rainyday.min.js'
