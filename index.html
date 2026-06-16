@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Is it raining?</title>
-  <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
   <main>
@@ -31,17 +30,19 @@
         </div>
       </div>
       <div class="portrait-image" id="left-portrait">
-        <img src="./assets/img/kristaps-ungurs-FK0X8zKQP-8-unsplash.jpg" alt="Portfolio image">
+        <img src="/img/kristaps-ungurs-FK0X8zKQP-8-unsplash.jpg" alt="Portfolio image">
         <canvas class="rainy-canvas" aria-hidden="true"></canvas>
       </div>
       <div class="portrait-image">
-        <img src="./assets/img/vojtech-bruzek-zMl9PjGFPWg-unsplash.jpg" alt="Portfolio image">
+        <img src="/img/vojtech-bruzek-zMl9PjGFPWg-unsplash.jpg" alt="Portfolio image">
       </div>
     </section>
   </main>
-  <script src="src/jquery.min.js" defer></script>
-  <script src="src/jquery.ripples.min.js" defer></script>
-  <script src="src/rainyday.js" defer></script>
-  <script src="src/main.js" defer></script>
+  <!-- jQuery and external libraries (global scope) -->
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/jquery.ripples.min.js"></script>
+  <script src="/js/rainyday.js"></script>
+  <!-- Main module with CSS import -->
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>

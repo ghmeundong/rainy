@@ -1,3 +1,5 @@
+import './style.css';
+
 // ==================== jQuery.ripples 효과 설정 ====================
 
 // 물결 효과 설정 매개변수 (WebGL 기반)
@@ -19,7 +21,7 @@ $(document).ready(function() {
   if (ripplesAvailable) {
       try {
       $('.banner').ripples({
-        imageUrl: './assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
+        imageUrl: '/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg',
         resolution: rippleConfig.resolution,
         dropRadius: rippleConfig.dropRadius,
         perturbance: rippleConfig.perturbance,

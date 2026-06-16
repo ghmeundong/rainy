@@ -26,7 +26,7 @@ body.hero-locked {
   position: relative;
   overflow: hidden;
   background: #05060a;
-  background-image: url('../assets/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg');
+  background-image: url('/img/egor-litvinov-rF1goYJuxbY-unsplash.jpg');
   background-size: cover;
   background-position: center;
   background-attachment: scroll;
