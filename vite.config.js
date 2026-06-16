@@ -7,7 +7,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 700,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       input: './index.html',
       output: {
@@ -21,7 +21,14 @@ export default defineConfig({
           }
         }
       }
-    }
+    },
+    minify: 'terser',
+    terserOptions: {
+      mangle: true,
+      format: {
+        comments: false,
+      },
+    },
   },
   server: {
     port: 5173,
