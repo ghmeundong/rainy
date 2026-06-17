@@ -100,9 +100,9 @@ npm run deploy -- --env production  # Cloudflare Workers 배포
 
 ### 프론트엔드
 - **Vite**: 빠른 번들러
-- **jQuery**: DOM 조작
-- **Three.js**: 3D 그래픽
-- **RainyDay.js**: 빗소리 효과
+- **jQuery**: water ripple 효과
+- **Three.js**: 3D raining 효과
+- **RainyDay.js**: glass droplets 효과
 
 ### 백엔드
 - **Cloudflare Workers**: 서버리스 API
