@@ -64,7 +64,6 @@ rainy/
 ├── index.html                     # Vite 진입점
 ├── vite.config.js
 ├── package.json
-├── .env                          # 프론트엔드 환경 변수
 └── .env.example                  # 환경 변수 템플릿
 ```
 

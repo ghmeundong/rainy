@@ -62,7 +62,6 @@ rainy/
 ├── index.html                     # Vite entry page
 ├── vite.config.js
 ├── package.json
-├── .env                          # Frontend environment variables
 └── .env.example                  # Environment variable template
 ```
 

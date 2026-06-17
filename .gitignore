@@ -23,5 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment variables (keep .env.example for template)
+.env
+.env.local
+
 # Local vendor script fallbacks for offline/dev only
 public/js/
