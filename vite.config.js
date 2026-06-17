@@ -1,9 +1,23 @@
 import { defineConfig } from 'vite'
+import path from 'path'
 
 export default defineConfig({
   root: './',
   base: '/rainy/',
   publicDir: 'public',
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@services': path.resolve(__dirname, './src/services'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@utils': path.resolve(__dirname, './src/utils'),
+    }
+  },
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify(
+      process.env.VITE_API_URL || 'http://localhost:8787'
+    ),
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

@@ -1,7 +1,37 @@
 import './style.css';
 import $ from 'jquery';
+import { api } from './services/api.js';
 
 window.$ = window.jQuery = $;
+
+// API 서비스 전역 노출 (콘솔에서 테스트 가능)
+window.api = api;
+
+const isMobile = window.matchMedia('(max-width: 900px)').matches;
+const devicePixelRatio = window.devicePixelRatio || 1;
+let animationBackendConfig = null;
+
+async function getAnimationConfig(width, height) {
+  if (animationBackendConfig) return animationBackendConfig;
+
+  try {
+    animationBackendConfig = await api.animation.init({
+      width,
+      height,
+      devicePixelRatio,
+      isMobile: isMobile ? 'true' : 'false',
+    });
+  } catch (error) {
+    console.warn('Animation backend initialization failed:', error);
+    animationBackendConfig = null;
+  }
+
+  return animationBackendConfig;
+}
+
+// 콘솔에서 사용 예시
+// api.health()
+// api.animation.init({ width: 1200, height: 600 })
 
 const renderHooks = [];
 let masterFrameId = null;
@@ -74,9 +104,33 @@ async function initThreeScene() {
   const galleryCanvas = gallery3D?.querySelector('.gallery-rain-canvas');
 
   if (!(gallery3D && galleryCanvas)) return;
-  const rainFloor = -30;
-  const rainCeil = 150;
-  
+
+  let rainFloor = -30;
+  let rainCeil = 150;
+  let rainCount = 650;
+  let trailLength = 3;
+  let splashCount = 100;
+  let rainIntensity = 1.0;
+
+  let animationBackendConfig = null;
+  try {
+    animationBackendConfig = await api.animation.init({
+      width: gallery3D.clientWidth,
+      height: gallery3D.clientHeight,
+      devicePixelRatio,
+      isMobile: isMobile ? 'true' : 'false',
+    });
+
+    rainFloor = animationBackendConfig.rainFloor ?? rainFloor;
+    rainCeil = animationBackendConfig.rainCeil ?? rainCeil;
+    rainCount = animationBackendConfig.rainCount ?? rainCount;
+    trailLength = animationBackendConfig.trailLength ?? trailLength;
+    splashCount = animationBackendConfig.splashCount ?? splashCount;
+    rainIntensity = animationBackendConfig.rainIntensity ?? rainIntensity;
+  } catch (error) {
+    console.warn('Animation backend initialization failed:', error);
+  }
+
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(
     75,
@@ -91,30 +145,34 @@ async function initThreeScene() {
   camera.position.z = 15;
 
   // Rain as line trails with history tracking
-  const rainCount = 650;
-  const trailLength = 3; // Store previous positions for trail effect
   const rainPositions = new Float32Array(rainCount * 3);
   const rainVelocities = new Float32Array(rainCount * 3);
-  const rainTrails = Array(rainCount).fill(0).map(() => Array(trailLength).fill({x: 0, y: 0, z: 0}));
 
-  for (let i = 0; i < rainCount; i++) {
-    const x = (Math.random() - 0.5) * 100;
-    const y = rainCeil - Math.random() * (rainCeil - rainFloor);
-    const z = (Math.random() - 0.5) * 50;
-    
-    rainPositions[i * 3] = x;
-    rainPositions[i * 3 + 1] = y;
-    rainPositions[i * 3 + 2] = z;
+  if (animationBackendConfig?.rainPositions && animationBackendConfig?.rainVelocities) {
+    rainPositions.set(animationBackendConfig.rainPositions);
+    rainVelocities.set(animationBackendConfig.rainVelocities);
+  } else {
+    for (let i = 0; i < rainCount; i++) {
+      const x = (Math.random() - 0.5) * 100;
+      const y = rainCeil - Math.random() * (rainCeil - rainFloor);
+      const z = (Math.random() - 0.5) * 50;
+      
+      rainPositions[i * 3] = x;
+      rainPositions[i * 3 + 1] = y;
+      rainPositions[i * 3 + 2] = z;
 
-    rainVelocities[i * 3] = (Math.random() - 0.5) * 0.15;
-    rainVelocities[i * 3 + 1] = -0.5 - Math.random() * 0.8;
-    rainVelocities[i * 3 + 2] = 0;
-    
-    // Initialize trail
-    for (let t = 0; t < trailLength; t++) {
-      rainTrails[i][t] = {x, y, z};
+      rainVelocities[i * 3] = (Math.random() - 0.5) * 0.15;
+      rainVelocities[i * 3 + 1] = -0.5 - Math.random() * 0.8;
+      rainVelocities[i * 3 + 2] = 0;
     }
   }
+
+  const rainTrails = Array.from({ length: rainCount }, (_, i) => {
+    const x = rainPositions[i * 3];
+    const y = rainPositions[i * 3 + 1];
+    const z = rainPositions[i * 3 + 2];
+    return Array.from({ length: trailLength }, () => ({ x, y, z }));
+  });
 
   const rainGeometry = new THREE.BufferGeometry();
   rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
@@ -148,8 +206,6 @@ async function initThreeScene() {
 
   const trailMesh = new THREE.LineSegments(trailGeometry, trailMaterial);
   scene.add(trailMesh);
-
-  let rainIntensity = 1.0;
 
   function updateRain() {
     const posAttr = rainGeometry.getAttribute('position');
@@ -194,7 +250,6 @@ async function initThreeScene() {
   }
 
   // Splash particles for ground impact effect
-  const splashCount = 100;
   const splashPositions = new Float32Array(splashCount * 3);
   const splashVelocities = new Float32Array(splashCount * 3);
   const splashLifes = new Float32Array(splashCount);
@@ -340,8 +395,7 @@ const rippleBackgroundImage = `${import.meta.env.BASE_URL}img/egor-litvinov-rF1g
 const rainydayScriptUrl = `${import.meta.env.BASE_URL}js/rainyday.js`;
 
 // 물결 효과 설정 매개변수 (WebGL 기반)
-const isMobile = window.matchMedia('(max-width: 900px)').matches;
-const devicePixelRatio = window.devicePixelRatio || 1;
+// `isMobile` 및 `devicePixelRatio`는 파일 상단에서 이미 선언되어 있습니다.
 const rippleConfig = {
   resolution: isMobile ? 256 : 512,    // 텍스처 해상도 (크수록 정교함, 성능 ↓)
   dropRadius: isMobile ? 20 : 18,       // 물결 반경
@@ -443,11 +497,12 @@ $(document).ready(async function() {
   }, { passive: true });
   
   // 각 글자의 물리 상태
-  const letterStates = Array.from(letters).map(() => ({
+  const letterVelocities = animationBackendConfig?.letterVelocities || [];
+  const letterStates = Array.from(letters).map((_, index) => ({
     x: 0,
     y: 0,
-    vx: (Math.random() - 0.5) * 0.8,
-    vy: (Math.random() - 0.5) * 0.8
+    vx: letterVelocities[index]?.vx ?? (Math.random() - 0.5) * 0.8,
+    vy: letterVelocities[index]?.vy ?? (Math.random() - 0.5) * 0.8,
   }));
   
   // 글자를 escampar 단어 형태로 정렬

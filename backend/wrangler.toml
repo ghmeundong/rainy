@@ -1,0 +1,28 @@
+name = "rainy-api"
+main = "src/index.js"
+compatibility_date = "2024-10-02"
+compatibility_flags = ["nodejs_compat"]
+
+# Production environment configuration
+[env.production]
+# Set your production routes in Cloudflare dashboard or here.
+# Example:
+# routes = [
+#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
+vars = { ENVIRONMENT = "production" }
+
+# Staging environment configuration
+[env.staging]
+# Set your staging routes in Cloudflare dashboard or here.
+# Example:
+# routes = [
+#   { pattern = "api-staging.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
+vars = { ENVIRONMENT = "staging" }
+
+# KV namespace for caching (optional)
+[[kv_namespaces]]
+binding = "CACHE"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-namespace-id"

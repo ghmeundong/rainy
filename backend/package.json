@@ -1,0 +1,18 @@
+{
+  "name": "rainy-animation-api",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker backend for Rainy animation API",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler build",
+    "deploy": "wrangler deploy --env production",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {}
+}
