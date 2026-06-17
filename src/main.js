@@ -15,12 +15,22 @@ async function getAnimationConfig(width, height) {
   if (animationBackendConfig) return animationBackendConfig;
 
   try {
-    animationBackendConfig = await api.animation.init({
-      width,
-      height,
-      devicePixelRatio,
-      isMobile: isMobile ? 'true' : 'false',
-    });
+    // prefer binary response for performance
+    try {
+      animationBackendConfig = await api.animation.initBinary({
+        width,
+        height,
+        devicePixelRatio,
+        isMobile: isMobile ? 'true' : 'false',
+      });
+    } catch (e) {
+      animationBackendConfig = await api.animation.init({
+        width,
+        height,
+        devicePixelRatio,
+        isMobile: isMobile ? 'true' : 'false',
+      });
+    }
   } catch (error) {
     console.warn('Animation backend initialization failed:', error);
     animationBackendConfig = null;
@@ -105,21 +115,16 @@ async function initThreeScene() {
 
   if (!(gallery3D && galleryCanvas)) return;
 
-  let rainFloor = -30;
-  let rainCeil = 150;
-  let rainCount = 650;
+  let rainFloor = -35;
+  let rainCeil = 170;
+  let rainCount = 420;
   let trailLength = 3;
-  let splashCount = 100;
-  let rainIntensity = 1.0;
+  let splashCount = 60;
+  let rainIntensity = 0.45;
 
   let animationBackendConfig = null;
   try {
-    animationBackendConfig = await api.animation.init({
-      width: gallery3D.clientWidth,
-      height: gallery3D.clientHeight,
-      devicePixelRatio,
-      isMobile: isMobile ? 'true' : 'false',
-    });
+    animationBackendConfig = await getAnimationConfig(gallery3D.clientWidth, gallery3D.clientHeight);
 
     rainFloor = animationBackendConfig.rainFloor ?? rainFloor;
     rainCeil = animationBackendConfig.rainCeil ?? rainCeil;
@@ -161,10 +166,41 @@ async function initThreeScene() {
       rainPositions[i * 3 + 1] = y;
       rainPositions[i * 3 + 2] = z;
 
-      rainVelocities[i * 3] = (Math.random() - 0.5) * 0.15;
-      rainVelocities[i * 3 + 1] = -0.5 - Math.random() * 0.8;
-      rainVelocities[i * 3 + 2] = 0;
+      // Light drizzle fall speed with gentle drift
+      rainVelocities[i * 3] = (Math.random() - 0.5) * 0.06; // weaker x drift
+      rainVelocities[i * 3 + 1] = -0.45 - Math.random() * 0.25; // slower fall
+      rainVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.015; // slight z
     }
+  }
+
+  // Start physics worker and initialize with copies of buffers
+  let latestWorkerPositions = null;
+  let physicsWorker = null;
+  try {
+    physicsWorker = new Worker(new URL('./workers/physicsWorker.js', import.meta.url), { type: 'module' });
+    physicsWorker.postMessage({
+      type: 'init',
+      rainCount,
+      rainPositions: rainPositions.slice(),
+      rainVelocities: rainVelocities.slice(),
+      rainFloor,
+      rainCeil,
+      gravity: 0.08,
+    });
+
+    physicsWorker.onmessage = (ev) => {
+      const msg = ev.data;
+      if (msg && msg.type === 'update' && msg.rainPositions) {
+        // Structured-cloned Float32Array
+        latestWorkerPositions = msg.rainPositions;
+        const posAttr = rainGeometry.getAttribute('position');
+        posAttr.array.set(latestWorkerPositions);
+        posAttr.needsUpdate = true;
+      }
+    };
+  } catch (err) {
+    console.warn('Failed to start physics worker, falling back to main-thread physics', err);
+    physicsWorker = null;
   }
 
   const rainTrails = Array.from({ length: rainCount }, (_, i) => {
@@ -176,15 +212,55 @@ async function initThreeScene() {
 
   const rainGeometry = new THREE.BufferGeometry();
   rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+  rainGeometry.setAttribute('velocity', new THREE.BufferAttribute(rainVelocities, 3));
+  rainGeometry.setDrawRange(0, rainCount);
 
-  // Use PointsMaterial for simple, visible rain particles with glow
-  const rainMaterial = new THREE.PointsMaterial({
-    color: 0xccddff,
-    size: 0.3,
-    sizeAttenuation: true,
+  // Shader-based points that stretch into streaks based on velocity (screen-space)
+  const rainVertexShader = `
+    attribute vec3 velocity;
+    uniform float size;
+    varying vec2 vVel;
+    void main() {
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      // velocity in view space
+      vec3 velView = (modelViewMatrix * vec4(velocity, 0.0)).xyz;
+      vVel = normalize(velView.xy);
+      float len = length(velView);
+      float pointSize = size * (300.0 / -mvPosition.z) * (0.6 + clamp(len * 0.6, 0.0, 2.0));
+      gl_PointSize = pointSize;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `;
+
+  const rainFragmentShader = `
+    uniform vec3 color;
+    uniform float opacity;
+    varying vec2 vVel;
+    void main() {
+      vec2 coord = gl_PointCoord * 2.0 - 1.0;
+      vec2 dir = normalize(vVel);
+      float perp = abs(dot(coord, vec2(-dir.y, dir.x)));
+      float along = dot(coord, dir);
+      float streak = smoothstep(0.04, 0.01, perp);
+      float fade = smoothstep(1.0, 0.0, length(coord));
+      float head = 1.0 - smoothstep(0.05, 0.5, along);
+      float alpha = streak * fade * head;
+      alpha *= opacity;
+      gl_FragColor = vec4(color * vec3(1.0, 1.05, 1.2), alpha);
+    }
+  `;
+
+  const rainMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(0xddeeff) },
+      size: { value: isMobile ? 6.5 : 14.0 },
+      opacity: { value: 0.65 }
+    },
+    vertexShader: rainVertexShader,
+    fragmentShader: rainFragmentShader,
     transparent: true,
-    opacity: 0.85,
-    fog: false
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
   });
 
   const rainMesh = new THREE.Points(rainGeometry, rainMaterial);
@@ -195,12 +271,16 @@ async function initThreeScene() {
   const maxTrailPositions = rainCount * trailLength * 3;
   const trailPositions = new Float32Array(maxTrailPositions);
   trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+  const trailColors = new Float32Array(maxTrailPositions);
+  trailGeometry.setAttribute('color', new THREE.BufferAttribute(trailColors, 3));
   
   const trailMaterial = new THREE.LineBasicMaterial({
-    color: 0xaabbff,
+    vertexColors: true,
     linewidth: 1,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.35,
+    blending: THREE.AdditiveBlending,
+    depthTest: false,
     fog: false
   });
 
@@ -214,25 +294,51 @@ async function initThreeScene() {
     const trailArray = trailAttr.array;
     let trailIndex = 0;
 
-    for (let i = 0; i < rainCount; i++) {
-      posArray[i * 3 + 1] += rainVelocities[i * 3 + 1] * rainIntensity;
-      posArray[i * 3] += rainVelocities[i * 3] * rainIntensity;
+    // Ask worker to advance physics (non-blocking)
+    if (physicsWorker) {
+      physicsWorker.postMessage({ type: 'step', dt: 1.0, intensity: rainIntensity });
+    } else {
+      // If no worker, fall back to main-thread physics update
+      for (let i = 0; i < rainCount; i++) {
+        posArray[i * 3 + 1] += rainVelocities[i * 3 + 1] * rainIntensity;
+        posArray[i * 3] += rainVelocities[i * 3] * rainIntensity;
+      }
+    }
 
+    const activeCount = Math.round(rainCount * Math.max(0.02, Math.pow(rainIntensity, 2.5)));
+    rainGeometry.setDrawRange(0, activeCount);
+
+    for (let i = 0; i < activeCount; i++) {
       const posX = posArray[i * 3];
       const posY = posArray[i * 3 + 1];
       const posZ = posArray[i * 3 + 2];
 
-      rainTrails[i].unshift({x: posX, y: posY, z: posZ});
+      rainTrails[i].unshift({ x: posX, y: posY, z: posZ });
       if (rainTrails[i].length > trailLength) rainTrails[i].pop();
 
       if (rainTrails[i].length > 1) {
         for (let t = 0; t < rainTrails[i].length - 1; t++) {
-          trailArray[trailIndex++] = rainTrails[i][t].x;
-          trailArray[trailIndex++] = rainTrails[i][t].y;
-          trailArray[trailIndex++] = rainTrails[i][t].z;
-          trailArray[trailIndex++] = rainTrails[i][t + 1].x;
-          trailArray[trailIndex++] = rainTrails[i][t + 1].y;
-          trailArray[trailIndex++] = rainTrails[i][t + 1].z;
+          const a = rainTrails[i][t];
+          const b = rainTrails[i][t + 1];
+          trailArray[trailIndex++] = a.x;
+          trailArray[trailIndex++] = a.y;
+          trailArray[trailIndex++] = a.z;
+          trailArray[trailIndex++] = b.x;
+          trailArray[trailIndex++] = b.y;
+          trailArray[trailIndex++] = b.z;
+          // color fade: head brighter, tail dimmer
+          const fadeA = 1 - t / Math.max(1, rainTrails[i].length - 1);
+          const fadeB = 1 - (t + 1) / Math.max(1, rainTrails[i].length - 1);
+          const colorHead = 0.9 * fadeA + 0.1; // luminance
+          const colorTail = 0.9 * fadeB + 0.1;
+          const colorIndexA = (trailIndex / 3 - 2) * 3; // back-calc index for color array
+          const colorIndexB = (trailIndex / 3 - 1) * 3;
+          trailGeometry.getAttribute('color').array[colorIndexA] = 0.8 * colorHead;
+          trailGeometry.getAttribute('color').array[colorIndexA + 1] = 0.9 * colorHead;
+          trailGeometry.getAttribute('color').array[colorIndexA + 2] = 1.0 * colorHead;
+          trailGeometry.getAttribute('color').array[colorIndexB] = 0.8 * colorTail;
+          trailGeometry.getAttribute('color').array[colorIndexB + 1] = 0.9 * colorTail;
+          trailGeometry.getAttribute('color').array[colorIndexB + 2] = 1.0 * colorTail;
         }
       }
 
@@ -240,12 +346,14 @@ async function initThreeScene() {
         createSplash(posX, rainIntensity);
         posArray[i * 3 + 1] = rainCeil;
         posArray[i * 3] = (Math.random() - 0.5) * 100;
-        rainTrails[i] = Array(trailLength).fill({x: posArray[i * 3], y: rainCeil, z: posArray[i * 3 + 2]});
+        rainTrails[i] = Array.from({ length: trailLength }, () => ({ x: posArray[i * 3], y: rainCeil, z: posArray[i * 3 + 2] }));
       }
     }
-    
+
     posAttr.needsUpdate = true;
     trailAttr.needsUpdate = true;
+    const trailColorAttr = trailGeometry.getAttribute('color');
+    if (trailColorAttr) trailColorAttr.needsUpdate = true;
     trailGeometry.setDrawRange(0, trailIndex / 3);
   }
 
@@ -330,18 +438,68 @@ async function initThreeScene() {
   }
 
   let galleryRenderHook = null;
+  let galleryVisible = false;
+  let rainPausedByScroll = false;
+  const galleryPauseThreshold = 0.98;
+
+  const startGalleryLoop = () => {
+    if (!galleryVisible || rainPausedByScroll || galleryRenderHook) return;
+    galleryRenderHook = () => {
+      if (document.hidden) return;
+      animateFrame();
+    };
+    addRenderHook(galleryRenderHook);
+  };
+
+  const clearRainRender = () => {
+    rainGeometry.setDrawRange(0, 0);
+    trailGeometry.setDrawRange(0, 0);
+    renderer.render(scene, camera);
+  };
+
+  const stopGalleryLoop = () => {
+    if (!galleryRenderHook) return;
+    removeRenderHook(galleryRenderHook);
+    galleryRenderHook = null;
+  };
+
+  const updateRainIntensityByScroll = () => {
+    const bannerEl = document.querySelector('.banner');
+    const scrollY = window.scrollY || window.pageYOffset;
+    const bannerBottom = bannerEl?.offsetTop + bannerEl?.offsetHeight || 0;
+    const galleryStart = bannerBottom;
+    const documentHeight = document.documentElement.scrollHeight;
+    const windowHeight = window.innerHeight;
+    const maxScroll = documentHeight - windowHeight;
+    const scrollFromGallery = Math.max(0, scrollY - galleryStart);
+    const rainMaxScroll = Math.max(100, maxScroll - galleryStart);
+    const scrollFraction = Math.min(1, Math.max(0, scrollFromGallery / rainMaxScroll));
+    const rainFade = Math.max(0, 1 - Math.pow(scrollFraction, 3.5));
+
+    rainIntensity = rainFade;
+    rainMaterial.opacity = 0.65 * rainFade;
+    trailMaterial.opacity = 0.35 * rainFade;
+    splashMaterial.opacity = 0.45 * rainFade;
+
+    const pauseRain = scrollFraction >= galleryPauseThreshold;
+    if (pauseRain !== rainPausedByScroll) {
+      rainPausedByScroll = pauseRain;
+      if (rainPausedByScroll) {
+        clearRainRender();
+        stopGalleryLoop();
+      } else {
+        startGalleryLoop();
+      }
+    }
+  };
+
   const galleryObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      const visible = entry.intersectionRatio > 0;
-      if (visible && !galleryRenderHook) {
-        galleryRenderHook = () => {
-          if (document.hidden) return;
-          animateFrame();
-        };
-        addRenderHook(galleryRenderHook);
-      } else if (!visible && galleryRenderHook) {
-        removeRenderHook(galleryRenderHook);
-        galleryRenderHook = null;
+      galleryVisible = entry.intersectionRatio > 0;
+      if (galleryVisible) {
+        startGalleryLoop();
+      } else {
+        stopGalleryLoop();
       }
     });
   }, { threshold: 0.1 });
@@ -359,21 +517,10 @@ async function initThreeScene() {
 
   // Scroll-driven rain intensity
   window.addEventListener('scroll', () => {
-    const bannerEl = document.querySelector('.banner');
-    const scrollY = window.scrollY || window.pageYOffset;
-    const bannerBottom = bannerEl?.offsetTop + bannerEl?.offsetHeight || 0;
-    const galleryStart = bannerBottom;
-    const documentHeight = document.documentElement.scrollHeight;
-    const windowHeight = window.innerHeight;
-    const maxScroll = documentHeight - windowHeight;
-    const scrollFromGallery = Math.max(0, scrollY - galleryStart);
-    const rainMaxScroll = Math.max(100, maxScroll - galleryStart);
-
-    rainIntensity = Math.max(0, 1 - scrollFromGallery / rainMaxScroll);
-    rainMaterial.opacity = 0.85 * rainIntensity;
-    trailMaterial.opacity = 0.5 * rainIntensity;
-    splashMaterial.opacity = 0.6 * rainIntensity;
+    requestAnimationFrame(updateRainIntensityByScroll);
   }, { passive: true });
+
+  updateRainIntensityByScroll();
 }
 
 const gallerySection = document.querySelector('.gallery');

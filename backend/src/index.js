@@ -97,6 +97,83 @@ function handleAnimationInit(request) {
   return jsonResponse(animationData);
 }
 
+async function handleAnimationInitBinary(request) {
+  const url = new URL(request.url);
+  const params = url.searchParams;
+  const cacheKey = new Request(request.url, { method: 'GET' });
+
+  // Try cache
+  try {
+    const cache = caches.default;
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
+  } catch (e) {
+    // ignore cache errors
+  }
+
+  const animationData = buildAnimationConfig(params);
+
+  const rainCount = animationData.rainCount;
+  const trailLength = animationData.trailLength;
+  const splashCount = animationData.splashCount;
+  const letterCount = animationData.letterVelocities.length;
+
+  const headerBytes = 4 * 7; // 7 uint32/float32 header values
+  const positionsBytes = Float32Array.BYTES_PER_ELEMENT * rainCount * 3;
+  const velocitiesBytes = Float32Array.BYTES_PER_ELEMENT * rainCount * 3;
+  const letterBytes = Float32Array.BYTES_PER_ELEMENT * letterCount * 2;
+
+  const total = headerBytes + positionsBytes + velocitiesBytes + letterBytes;
+  const buffer = new ArrayBuffer(total);
+  const dv = new DataView(buffer);
+  let offset = 0;
+
+  // header: rainCount, trailLength, splashCount, letterCount (uint32)
+  dv.setUint32(offset, rainCount, true); offset += 4;
+  dv.setUint32(offset, trailLength, true); offset += 4;
+  dv.setUint32(offset, splashCount, true); offset += 4;
+  dv.setUint32(offset, letterCount, true); offset += 4;
+  // floats: rainFloor, rainCeil, rainIntensity
+  dv.setFloat32(offset, animationData.rainFloor, true); offset += 4;
+  dv.setFloat32(offset, animationData.rainCeil, true); offset += 4;
+  dv.setFloat32(offset, animationData.rainIntensity, true); offset += 4;
+
+  // positions
+  const f32 = new Float32Array(buffer, offset, rainCount * 3);
+  for (let i = 0; i < rainCount * 3; i++) f32[i] = animationData.rainPositions[i];
+  offset += positionsBytes;
+
+  // velocities
+  const f32v = new Float32Array(buffer, offset, rainCount * 3);
+  for (let i = 0; i < rainCount * 3; i++) f32v[i] = animationData.rainVelocities[i];
+  offset += velocitiesBytes;
+
+  // letter velocities (vx, vy)
+  const f32l = new Float32Array(buffer, offset, letterCount * 2);
+  for (let i = 0; i < letterCount; i++) {
+    f32l[i * 2] = animationData.letterVelocities[i].vx;
+    f32l[i * 2 + 1] = animationData.letterVelocities[i].vy;
+  }
+
+  const resp = new Response(buffer, {
+    status: 200,
+    headers: {
+      ...CORS_HEADERS,
+      'Content-Type': 'application/octet-stream',
+    },
+  });
+
+  // cache the response (best-effort)
+  try {
+    const cache = caches.default;
+    cache.put(cacheKey, resp.clone());
+  } catch (e) {
+    // ignore cache errors
+  }
+
+  return resp;
+}
+
 function handleNotFound() {
   return new Response(JSON.stringify({ error: 'Not found' }), {
     status: 404,
@@ -118,6 +195,11 @@ export default {
     }
 
     if (pathname === '/api/animation/init' && request.method === 'GET') {
+      // support ?binary=1 or /binary path
+      const params = url.searchParams;
+      if (params.get('binary') === '1' || pathname.endsWith('/binary')) {
+        return handleAnimationInitBinary(request);
+      }
       return handleAnimationInit(request);
     }
 
