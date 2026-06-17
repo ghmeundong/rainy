@@ -1,8 +1,31 @@
 # 🌧️ Rainy
 
-**Vite frontend + Cloudflare Workers backend project**
+![Stars](https://img.shields.io/github/stars/ghmeundong/rainy?style=for-the-badge)
+![License](https://img.shields.io/github/license/ghmeundong/rainy?style=for-the-badge)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-FF8C00?style=for-the-badge&logo=cloudflare)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite)
+![Three.js](https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js)
 
-Rainy uses a serverless API to generate animation initial values and renders an immersive rain effect in the browser.
+**After the Rain** — immersive 3D rain-aftermath visualization with server-generated animation, Web Worker physics, and Cloudflare Workers.
+
+Rainy renders the calm scene after a storm with drifting droplets, soft ripples, and reflective rain effects.
+
+---
+
+## 🎬 Demo
+
+| After the rain | Glass droplets | Rippling reflections |
+|---|---|---|
+| ![After the rain](./docs/quote-raining.gif) | ![Glass droplets](./docs/glass-droplets.gif) | ![Ripple effect](./docs/escampar-ripple-effect.gif) |
+
+---
+
+## ✨ Highlights
+
+- Immersive “after the rain” visualization with 3D droplets, reflective surfaces, and ripple motion
+- Cloudflare Workers backend generates animation state and serves compact binary payloads
+- Web Workers handle physics for smooth, low-latency rendering
+- Simple deploy path: GitHub Pages frontend + serverless backend
 
 ---
 
