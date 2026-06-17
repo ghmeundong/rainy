@@ -1,135 +1,135 @@
 # 🌧️ Rainy
 
-**Vite 프론트엔드 + Cloudflare Workers 백엔드 프로젝트**
+**Vite frontend + Cloudflare Workers backend project**
 
-Rainy는 서버리스 API로 애니메이션 초기값을 계산하고 프론트엔드에서 몰입형 빗방울 효과를 렌더링합니다.
+Rainy uses a serverless API to generate animation initial values and renders an immersive rain effect in the browser.
 
 ---
 
-## 🎯 빠른 시작
+## 🎯 Quick Start
 
 ```bash
-# 루트에서 프론트엔드 설치 및 실행
+# Install frontend dependencies and start the dev server
 npm install
 npm run dev
 
-# 백엔드 실행
+# Start backend locally
 cd backend
 npm install
 npm run dev
 ```
 
-브라우저에서 접속: `http://localhost:5173/rainy/`
+Open the site at: `http://localhost:5173/rainy/`
 
 ---
 
-## 📚 문서
+## 📚 Documentation
 
-| 문서 | 내용 |
-|------|------|
-| [📘 개발 가이드](./docs/DEVELOPMENT.md) | 개발 환경 구성, 로컬 실행, 디버깅 |
-| [🧱 아키텍처](./docs/ARCHITECTURE.md) | 시스템 구성과 데이터 흐름 |
-| [🛠️ API 스펙](./docs/API.md) | 백엔드 API 형태 및 사용 예시 |
-| [🚀 배포 가이드](./docs/DEPLOYMENT.md) | GitHub Pages + Cloudflare Workers 배포 |
+| Document | Description |
+|---------|-------------|
+| [📘 Development Guide](./docs/DEVELOPMENT.md) | Local setup, running, debugging |
+| [🧱 Architecture](./docs/ARCHITECTURE.md) | System design and data flow |
+| [🛠️ API Spec](./docs/API.md) | Backend API format and examples |
+| [🚀 Deployment Guide](./docs/DEPLOYMENT.md) | GitHub Pages + Cloudflare Workers deployment |
 
 ---
 
-## 🏛️ 프로젝트 구조
+## 🏛️ Project Structure
 
 ```
 rainy/
-├── docs/                          # 📚 문서
+├── docs/                          # Documentation
 │   ├── ARCHITECTURE.md
 │   ├── API.md
 │   ├── DEPLOYMENT.md
 │   └── DEVELOPMENT.md
-├── src/                           # 🎨 프론트엔드
+├── src/                           # Frontend source
 │   ├── services/
-│   │   └── api.js                # 백엔드 API 호출
+│   │   └── api.js                # Backend API client
 │   ├── main.js
 │   └── style.css
-├── backend/                       # 🔧 Cloudflare Workers 백엔드
+├── backend/                       # Cloudflare Workers backend
 │   ├── src/
-│   │   └── index.js              # Worker 엔트리포인트
-│   ├── wrangler.toml              # Workers 배포 구성
+│   │   └── index.js              # Worker entry point
+│   ├── wrangler.toml              # Worker deployment config
 │   └── package.json
-├── public/                        # 📁 정적 자산
+├── public/                        # Static assets
 │   ├── img/
 │   └── js/
 │       ├── jquery.min.js
 │       ├── jquery.ripples.min.js
 │       └── rainyday.js
-├── index.html                     # Vite 진입점
+├── index.html                     # Vite entry page
 ├── vite.config.js
 ├── package.json
-├── .env                          # 프론트엔드 환경 변수
-└── .env.example                  # 환경 변수 템플릿
+├── .env                          # Frontend environment variables
+└── .env.example                  # Environment variable template
 ```
 
 ---
 
-## 🔗 API 엔드포인트
+## 🔗 API Endpoints
 
-| 메서드 | 경로 | 설명 |
-|--------|------|
-| GET | `/api/health` | 서버 상태 확인 |
-| GET | `/api/animation/init` | 애니메이션 초기값 생성 |
-| GET | `/api/animation/init?binary=1` | 바이너리 응답으로 초기값 생성 |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Check API health |
+| GET | `/api/animation/init` | Generate animation initialization data |
+| GET | `/api/animation/init?binary=1` | Generate binary initialization payload |
 
-**기본 URL**: `http://localhost:8787`
+**Base URL**: `http://localhost:8787`
 
 ---
 
-## 🛠️ 주요 명령어
+## 🛠️ Main Commands
 
 ```bash
-# 프론트엔드
-npm run dev          # 개발 서버
-npm run build        # 빌드
-npm run deploy       # GitHub Pages 배포
+# Frontend
+npm run dev          # Development server
+npm run build        # Build
+npm run deploy       # Deploy to GitHub Pages
 
-# 백엔드
+# Backend
 cd backend
-npm run dev          # Cloudflare Workers 로컬 개발
-npm run deploy -- --env production  # Cloudflare Workers 배포
+npm run dev          # Cloudflare Workers local development
+npm run deploy -- --env production  # Deploy Cloudflare Workers
 ```
 
 ---
 
-## 📦 기술 스택
+## 📦 Tech Stack
 
-### 프론트엔드
-- **Vite**: 빠른 번들러
-- **jQuery**: water ripple 효과
-- **Three.js**: 3D raining 효과
-- **RainyDay.js**: glass droplets 효과
+### Frontend
+- **Vite**: fast bundler
+- **jQuery**: water ripple effect
+- **Three.js**: 3D rain rendering
+- **RainyDay.js**: glass droplet effect
 
-### 백엔드
-- **Cloudflare Workers**: 서버리스 API
-- **Wrangler**: 로컬 개발 및 배포
-- **CORS**: Cross-origin 요청 지원
+### Backend
+- **Cloudflare Workers**: serverless API
+- **Wrangler**: local development and deployment
+- **CORS**: cross-origin request support
 
 ---
 
-## 🚀 배포
+## 🚀 Deployment
 
-### 프론트엔드 (GitHub Pages)
+### Frontend (GitHub Pages)
 
 ```bash
 npm run build
 npm run deploy
 ```
 
-### 백엔드 (Cloudflare Workers)
+### Backend (Cloudflare Workers)
 
-- `backend/wrangler.toml`을 사용해 Workers를 배포
-- 환경 변수은 Cloudflare Dashboard 또는 `wrangler.toml`에서 설정
+- `backend/wrangler.toml` is used to deploy Workers
+- Environment variables can be configured in the Cloudflare dashboard or `wrangler.toml`
 
 ---
 
-## 💡 API 사용 예시
+## 💡 API Example
 
-### 브라우저 콘솔에서
+### Browser console
 
 ```javascript
 await api.health();
@@ -143,17 +143,17 @@ await api.animation.init({
 
 ---
 
-## 🔒 보안
+## 🔒 Security
 
-- `.env` 파일에서 `VITE_API_URL`만 관리
-- 프로덕션에서는 `VITE_API_URL`을 Cloudflare Workers 주소로 변경
+- Manage `VITE_API_URL` in `.env`
+- Use the Cloudflare Workers URL for production
 
 ---
 
-## 📝 라이선스
+## 📝 License
 
 MIT
 
 ---
 
-**[� 개발 가이드](./docs/DEVELOPMENT.md)** | **[🧱 아키텍처](./docs/ARCHITECTURE.md)** | **[🚀 배포하기](./docs/DEPLOYMENT.md)**
+**[📘 Development Guide](./docs/DEVELOPMENT.md)** | **[🧱 Architecture](./docs/ARCHITECTURE.md)** | **[🚀 Deployment Guide](./docs/DEPLOYMENT.md)**
