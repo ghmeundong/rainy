@@ -27,10 +27,10 @@ npm run dev
 
 | 문서 | 내용 |
 |------|------|
-| [📖 빠른 시작](./docs/03_QUICKSTART.md) | 5분 안에 개발 환경 구성 |
-| [🏗️ 프로젝트 구조](./docs/02_PROJECT_STRUCTURE.md) | 디렉토리 구조 설명 |
-| [🔧 백엔드 가이드](./docs/01_BACKEND_GUIDE.md) | Cloudflare Worker API 사용법 |
-| [🚀 배포 가이드](./docs/04_DEPLOYMENT.md) | GitHub Pages + Cloudflare Workers 배포 |
+| [📘 개발 가이드](./docs/DEVELOPMENT.md) | 개발 환경 구성, 로컬 실행, 디버깅 |
+| [🧱 아키텍처](./docs/ARCHITECTURE.md) | 시스템 구성과 데이터 흐름 |
+| [🛠️ API 스펙](./docs/API.md) | 백엔드 API 형태 및 사용 예시 |
+| [🚀 배포 가이드](./docs/DEPLOYMENT.md) | GitHub Pages + Cloudflare Workers 배포 |
 
 ---
 
@@ -39,10 +39,10 @@ npm run dev
 ```
 rainy/
 ├── docs/                          # 📚 문서
-│   ├── 01_BACKEND_GUIDE.md
-│   ├── 02_PROJECT_STRUCTURE.md
-│   ├── 03_QUICKSTART.md
-│   └── 04_DEPLOYMENT.md
+│   ├── ARCHITECTURE.md
+│   ├── API.md
+│   ├── DEPLOYMENT.md
+│   └── DEVELOPMENT.md
 ├── src/                           # 🎨 프론트엔드
 │   ├── services/
 │   │   └── api.js                # 백엔드 API 호출
@@ -54,11 +54,16 @@ rainy/
 │   ├── wrangler.toml              # Workers 배포 구성
 │   └── package.json
 ├── public/                        # 📁 정적 자산
-│   └── img/
+│   ├── img/
+│   └── js/
+│       ├── jquery.min.js
+│       ├── jquery.ripples.min.js
+│       └── rainyday.js
 ├── index.html                     # Vite 진입점
 ├── vite.config.js
 ├── package.json
-└── .env                          # 프론트엔드 환경 변수
+├── .env                          # 프론트엔드 환경 변수
+└── .env.example                  # 환경 변수 템플릿
 ```
 
 ---
@@ -69,6 +74,7 @@ rainy/
 |--------|------|
 | GET | `/api/health` | 서버 상태 확인 |
 | GET | `/api/animation/init` | 애니메이션 초기값 생성 |
+| GET | `/api/animation/init?binary=1` | 바이너리 응답으로 초기값 생성 |
 
 **기본 URL**: `http://localhost:8787`
 
@@ -141,7 +147,6 @@ await api.animation.init({
 
 - `.env` 파일에서 `VITE_API_URL`만 관리
 - 프로덕션에서는 `VITE_API_URL`을 Cloudflare Workers 주소로 변경
-- MongoDB 또는 Express 관련 레거시 파일은 제거되었습니다
 
 ---
 
@@ -151,4 +156,4 @@ MIT
 
 ---
 
-**[📖 전체 가이드 보기](./docs/03_QUICKSTART.md)** | **[🏗️ 구조 설명](./docs/02_PROJECT_STRUCTURE.md)** | **[🚀 배포하기](./docs/04_DEPLOYMENT.md)**
+**[� 개발 가이드](./docs/DEVELOPMENT.md)** | **[🧱 아키텍처](./docs/ARCHITECTURE.md)** | **[🚀 배포하기](./docs/DEPLOYMENT.md)**
