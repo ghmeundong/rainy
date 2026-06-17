@@ -1,5 +1,6 @@
 # 🌧️ Rainy
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Now-blue?style=for-the-badge&logo=github)](https://ghmeundong.github.io/rainy/)
 ![Stars](https://img.shields.io/github/stars/ghmeundong/rainy?style=for-the-badge)
 ![License](https://img.shields.io/github/license/ghmeundong/rainy?style=for-the-badge)
 ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-FF8C00?style=for-the-badge&logo=cloudflare)
@@ -9,6 +10,8 @@
 **After the Rain** — immersive 3D rain-aftermath visualization with server-generated animation, Web Worker physics, and Cloudflare Workers.
 
 Rainy renders the calm scene after a storm with drifting droplets, soft ripples, and reflective rain effects.
+
+Live demo: https://ghmeundong.github.io/rainy/
 
 ---
 
@@ -42,7 +45,7 @@ npm install
 npm run dev
 ```
 
-Open the site at: `http://localhost:5173/rainy/`
+Open the site at: `http://localhost:5173/rainy/` or view the live demo at `https://ghmeundong.github.io/rainy/`
 
 ---
 
