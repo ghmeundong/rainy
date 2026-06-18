@@ -5,10 +5,17 @@ on:
     branches:
       - main
 
+permissions:
+  pages: write
+  id-token: write
+
 jobs:
   frontend-deploy:
     name: Frontend build & deploy
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,23 +27,19 @@ jobs:
           cache: 'npm'
 
       - name: Install frontend dependencies
-        working-directory: .
         run: npm ci
 
       - name: Build frontend
-        working-directory: .
         run: npm run build
 
-      - name: Configure git for deployment
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+      - name: Upload artifact to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist/'
 
-      - name: Deploy frontend to GitHub Pages
-        working-directory: .
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run deploy
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   backend-deploy:
     name: Backend build & deploy
