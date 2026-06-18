@@ -82,6 +82,21 @@ This means:
 - ✅ Set before `npm run deploy`
 - ❌ Cannot change after deployment without rebuilding
 
+### Runtime fallback (deployed site behavior)
+
+The frontend includes a small runtime fallback so that if the site is built with the
+default local development URL (`http://localhost:8787`) but the bundle is served from
+a GitHub Pages host (`*.github.io` or `ghmeundong.github.io`), the client will automatically
+use the production Worker URL `https://rainy-api-production.ghmeundong.workers.dev` at runtime.
+
+This protects common mistakes where a build accidentally embeds `localhost` and the
+deployed site would otherwise try to contact a non-existent backend. Note this only
+applies to the hosted frontend runtime — the canonical source of truth remains the
+`VITE_API_URL` set at build time.
+
+If you prefer strict behavior (no runtime fallback), set `VITE_API_URL` explicitly before
+building and remove the runtime fallback code in `src/services/api.js`.
+
 ### Troubleshooting Frontend Deploy
 
 | Issue | Solution |
