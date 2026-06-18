@@ -173,12 +173,24 @@ npx wrangler secret put MY_SECRET
 const secret = env.MY_SECRET;
 ```
 
-### GitHub Actions Secrets
+### GitHub Actions Requirements
 
-For automatic Cloudflare deployment, add the following repository secrets in GitHub:
+**Node.js Version**:
+- Frontend: v22 (for Vite)
+- Backend: v22 (for Wrangler v4)
 
-- `CF_API_TOKEN`
-- `CF_ACCOUNT_ID`
+Specified in `.github/workflows/deploy.yml`
+
+**Lock Files**:
+- Always keep `package-lock.json` and `backend/package-lock.json` in sync
+- Run `npm install` before pushing if dependencies change
+- GitHub Actions uses `npm ci` (requires synchronized lock files)
+
+**Repository Secrets**:
+For automatic Cloudflare deployment, add in GitHub Settings → Secrets:
+
+- `CF_API_TOKEN` - Cloudflare API token
+- `CF_ACCOUNT_ID` - Cloudflare account ID
 
 These values are referenced in `.github/workflows/deploy.yml` and must not be committed to git.
 
@@ -195,6 +207,28 @@ Shows real-time logs from production Worker.
 1. Log into Cloudflare Dashboard
 2. Workers → rainy-api-production
 3. Check request counts, error rates, latency
+
+## GitHub Actions Automated Deployment
+
+Deployments happen automatically on `git push origin main`:
+
+**Frontend**:
+- Uses GitHub Actions official Pages deployment (`actions/upload-pages-artifact` + `actions/deploy-pages`)
+- Replaces gh-pages npm package (more reliable authentication)
+- Time: ~2 minutes
+
+**Backend**:
+- Uses Wrangler CLI with GitHub Secrets
+- Depends on frontend job completion (sequential)
+- Time: ~1 minute
+
+**Workflows**:
+- `.github/workflows/ci.yml` - Tests & linting (every push)
+- `.github/workflows/deploy.yml` - Deployment (main branch)
+
+### Workflow Setup
+
+GitHub Pages is automatically configured for Actions deployment. No manual Pages settings needed.
 
 ## Full Deployment Flow
 
