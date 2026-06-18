@@ -7,7 +7,19 @@
  * const animationData = await api.animation.init({ width: 1200, height: 600 })
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+const DEFAULT_LOCAL = 'http://localhost:8787';
+let API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_LOCAL;
+
+if (typeof window !== 'undefined') {
+  // If the app was built with the default local URL but is running on GitHub Pages
+  // (or another production host), fall back to the known production API host so
+  // the deployed site doesn't try to call a localhost backend.
+  const host = window.location.hostname || '';
+  if ((API_BASE_URL === DEFAULT_LOCAL || /localhost/.test(API_BASE_URL)) &&
+      (host.endsWith('.github.io') || host === 'ghmeundong.github.io')) {
+    API_BASE_URL = 'https://rainy-api-production.ghmeundong.workers.dev';
+  }
+}
 
 function buildUrl(endpoint, params = {}) {
   const url = new URL(endpoint, API_BASE_URL);
