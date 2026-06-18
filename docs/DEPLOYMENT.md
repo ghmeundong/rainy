@@ -173,6 +173,15 @@ npx wrangler secret put MY_SECRET
 const secret = env.MY_SECRET;
 ```
 
+### GitHub Actions Secrets
+
+For automatic Cloudflare deployment, add the following repository secrets in GitHub:
+
+- `CF_API_TOKEN`
+- `CF_ACCOUNT_ID`
+
+These values are referenced in `.github/workflows/deploy.yml` and must not be committed to git.
+
 ### Monitoring Backend
 
 **Logs**:
