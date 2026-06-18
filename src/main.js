@@ -7,6 +7,46 @@ window.$ = window.jQuery = $;
 // API 서비스 전역 노출 (콘솔에서 테스트 가능)
 window.api = api;
 
+// ==================== Prevent unauthorized permission requests ====================
+// Block any unintended permission requests (camera, microphone, geolocation)
+// These should only be triggered by explicit user action
+
+const originalGetUserMedia = navigator.mediaDevices?.getUserMedia;
+const originalGetDisplayMedia = navigator.mediaDevices?.getDisplayMedia;
+const originalGetCurrentPosition = navigator.geolocation?.getCurrentPosition;
+
+let permissionRequestLog = [];
+
+if (navigator.mediaDevices && originalGetUserMedia) {
+  navigator.mediaDevices.getUserMedia = function(constraints) {
+    const caller = new Error().stack.split('\n')[2];
+    console.warn('[SECURITY] getUserMedia requested:', { constraints, caller });
+    permissionRequestLog.push({ type: 'getUserMedia', timestamp: Date.now(), constraints, caller });
+    return originalGetUserMedia.call(this, constraints);
+  };
+}
+
+if (navigator.mediaDevices && originalGetDisplayMedia) {
+  navigator.mediaDevices.getDisplayMedia = function(constraints) {
+    const caller = new Error().stack.split('\n')[2];
+    console.warn('[SECURITY] getDisplayMedia requested:', { constraints, caller });
+    permissionRequestLog.push({ type: 'getDisplayMedia', timestamp: Date.now(), constraints, caller });
+    return originalGetDisplayMedia.call(this, constraints);
+  };
+}
+
+if (navigator.geolocation && originalGetCurrentPosition) {
+  navigator.geolocation.getCurrentPosition = function(success, error, options) {
+    const caller = new Error().stack.split('\n')[2];
+    console.warn('[SECURITY] geolocation.getCurrentPosition requested:', { caller });
+    permissionRequestLog.push({ type: 'getCurrentPosition', timestamp: Date.now(), caller });
+    return originalGetCurrentPosition.call(this, success, error, options);
+  };
+}
+
+// Expose permission log for debugging
+window.getPermissionLog = () => permissionRequestLog;
+
 const isMobile = window.matchMedia('(max-width: 900px)').matches;
 const devicePixelRatio = window.devicePixelRatio || 1;
 let animationBackendConfig = null;
