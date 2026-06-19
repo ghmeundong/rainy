@@ -119,7 +119,7 @@ async function initThreeScene() {
   let rainCeil = 170;
   let rainCount = 420;
   let trailLength = 3;
-  let splashCount = 60;
+  let splashCount = 60 ;
   let rainIntensity = 0.45;
 
   let animationBackendConfig = null;
@@ -589,7 +589,7 @@ $(document).ready(async function() {
       const rect = banner.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      if (ripplesAvailable) $('.banner').ripples('showDrop', x, y, 25, 0.08);
+      if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
     });
 
     letter.addEventListener('touchstart', (event) => {
@@ -598,7 +598,7 @@ $(document).ready(async function() {
       const rect = banner.getBoundingClientRect();
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
-      if (ripplesAvailable) $('.banner').ripples('showDrop', x, y, 25, 0.08);
+      if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
     }, { passive: true });
   });
 
