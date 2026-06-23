@@ -316,6 +316,9 @@ npx wrangler rollback  # Interactive selection
 1. **Code Splitting**: Three.js in separate chunk
 2. **Asset Hashing**: Cache busting by default
 3. **Compression**: gzip by GitHub Pages
+4. **Web Worker Physics**: Offload rain update calculations to `src/workers/physicsWorker.js`
+5. **Transferable Buffers**: Use ArrayBuffer transfer for physics positions to avoid structured cloning overhead
+6. **Trail Buffer Optimization**: Store rain trail state in a fixed-size `Float32Array` ring buffer to prevent per-frame object allocations and shifting
 
 **Bundle Size**:
 ```

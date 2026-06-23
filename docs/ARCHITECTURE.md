@@ -263,6 +263,8 @@ npm run deploy
 3. **Shader Point Sprites** - More efficient than geometry-based rendering
 4. **Scroll-based Fade** - Reduce particle count as visibility decreases
 5. **Response Caching** - Cache API responses to reduce backend calls
+6. **Transferable Worker Messaging** - Use zero-copy ArrayBuffer transfer for physics updates between `physicsWorker.js` and the main thread.
+7. **Rain Trail Circular Buffer** - Store rain trail history in a fixed `Float32Array` ring buffer to avoid per-frame object churn and array shifting.
 
 ## Error Handling
 
