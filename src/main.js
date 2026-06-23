@@ -727,7 +727,19 @@ $(document).ready(async function() {
     const rect = banner.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
+    if (!isOnBanner) isOnBanner = true;
   });
+
+  // 초기 마우스 위치가 배너 위에 있는지 확인하고, 있으면 isOnBanner를 true로 설정
+  const initialMouseCheck = () => {
+    const rect = banner.getBoundingClientRect();
+    const x = window.event?.clientX ?? 0;
+    const y = window.event?.clientY ?? 0;
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      isOnBanner = true;
+    }
+  };
+  setTimeout(initialMouseCheck, 100);
 
   // 터치 시작
   banner.addEventListener('touchstart', (e) => {
@@ -836,9 +848,9 @@ $(document).ready(async function() {
         }
       });
       
-      // Add viscous drag for sticky movement.
-      const dragFactor = 0.92;
-      const stiffness = 0.03;
+      // Add viscous drag for floating water-like movement.
+      const dragFactor = 0.96;
+      const stiffness = 0.018;
       const targetX = state.tx || state.x;
       const targetY = state.ty || state.y;
       state.vx += (targetX - state.x) * stiffness;
