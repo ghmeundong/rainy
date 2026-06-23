@@ -7,6 +7,7 @@ import './style.css';
 import $ from 'jquery';
 import { api } from './services/api.js';
 import { buildAnimationConfig } from './services/animationConfig.js';
+import { initClickSync, sendLocalClick } from './services/clickSync.js';
 
 window.$ = window.jQuery = $;
 
@@ -622,6 +623,69 @@ $(document).ready(async function() {
 
   await waitForLetterMeasurements(letters);
 
+  function getRelativeBannerPoint(clientX, clientY) {
+    const rect = banner.getBoundingClientRect();
+    return {
+      x: Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, (clientY - rect.top) / rect.height)),
+    };
+  }
+
+  function triggerLocalRipple(clientX, clientY) {
+    const rect = banner.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
+  }
+
+  let lastSentLocalClick = { x: null, y: null, time: 0 };
+  let clickSyncEnabled = false;
+
+  async function handleLocalClick(clientX, clientY) {
+    triggerLocalRipple(clientX, clientY);
+    const relative = getRelativeBannerPoint(clientX, clientY);
+    lastSentLocalClick = {
+      x: relative.x,
+      y: relative.y,
+      time: Date.now(),
+    };
+    if (clickSyncEnabled) {
+      await sendLocalClick(relative.x, relative.y);
+    }
+  }
+
+  function handleRemoteClick({ x, y }) {
+    const now = Date.now();
+    if (
+      lastSentLocalClick.time > 0 &&
+      now - lastSentLocalClick.time < 200 &&
+      Math.hypot(x - lastSentLocalClick.x, y - lastSentLocalClick.y) < 0.025
+    ) {
+      return;
+    }
+
+    const rect = banner.getBoundingClientRect();
+    const px = x * rect.width;
+    const py = y * rect.height;
+    if (ripplesAvailable) $('.banner').ripples('drop', px, py, 25, 0.08);
+  }
+
+  const clickSync = await initClickSync(handleRemoteClick);
+  clickSyncEnabled = clickSync.enabled;
+  if (!clickSyncEnabled) {
+    console.info('Supabase realtime click sync disabled or unavailable.');
+  }
+
+  banner.addEventListener('click', (e) => {
+    handleLocalClick(e.clientX, e.clientY);
+  });
+
+  banner.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    handleLocalClick(touch.clientX, touch.clientY);
+  }, { passive: true });
+
   // 글자에서 ripple 효과 트리거
   letters.forEach((letter) => {
     letter.addEventListener('mouseenter', (e) => {
@@ -629,6 +693,7 @@ $(document).ready(async function() {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
+      handleLocalClick(e.clientX, e.clientY);
     });
 
     letter.addEventListener('touchstart', (event) => {
@@ -638,6 +703,7 @@ $(document).ready(async function() {
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
       if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
+      handleLocalClick(touch.clientX, touch.clientY);
     }, { passive: true });
   });
 
