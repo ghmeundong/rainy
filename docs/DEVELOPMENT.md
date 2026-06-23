@@ -31,9 +31,21 @@ Create `.env` file in project root:
 ```env
 # Frontend API URL for local development
 VITE_API_URL=http://localhost:8787
+
+# Supabase Realtime for click sync (optional, v2.0.0+)
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+
+# Cloudflare credentials (for production deployment)
+CF_ACCOUNT_ID=your-account-id
+CF_API_TOKEN=your-api-token
 ```
 
-This points to the local backend running on port 8787.
+**Notes:**
+- `VITE_API_URL`: Points to local backend running on port 8787
+- `VITE_SUPABASE_*`: Optional; enables realtime click sync between users
+- `CF_*`: Required only for Cloudflare deployment
+
 
 ## Running Locally
 
@@ -134,6 +146,35 @@ position[i * 2 + 1] += velocity[i * 2 + 1]; // y += vy
 position[i * 2] = (Math.random() - 0.5) * 100;
 position[i * 2 + 1] = rainCeil;
 ```
+
+### Making Changes to Letter Physics
+
+**File**: `src/main.js` (lines ~780-860)
+
+Letter physics parameters:
+
+```javascript
+// Physics state (letterStates array)
+const dragFactor = 0.96;         // Velocity damping (higher = less friction)
+const stiffness = 0.018;         // Spring force to return to origin
+const forceStrength = isTouchActive ? 0.1 : 0.2;  // Repulse force magnitude
+const repulseRadius = letterRadius + 18;  // Distance where repulsion starts
+
+// Collision response
+const impulse = -bounce * 0.2;   // Bounce intensity between letters
+const overlap = minDistance - distance;  // Separation amount
+```
+
+Tuning tips:
+- **More floaty**: Increase `dragFactor` (0.96-0.98), decrease `stiffness` (0.01-0.02)
+- **Snappier**: Decrease `dragFactor` (0.90-0.92), increase `stiffness` (0.03-0.05)
+- **Stronger repulsion**: Increase `forceStrength` (0.3-0.5)
+- **Looser spacing**: Decrease collision `impulse` (0.1-0.15)
+
+To test:
+1. Modify parameters in animateLetters() function
+2. Save file → Browser auto-reloads
+3. Hover/click letters to see new behavior
 
 ### Making Changes to API
 

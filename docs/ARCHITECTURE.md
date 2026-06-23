@@ -3,36 +3,41 @@
 ## System Overview
 
 ```
-┌─────────────────────────────────────────┐
-│         User Browser                    │
-│  ┌──────────────────────────────────┐  │
-│  │     Frontend (Vite + Three.js)   │  │
-│  │  ┌────────────────────────────┐  │  │
-│  │  │  main.js (Rain Animation)  │  │  │
-│  │  │  - Three.js scene setup    │  │  │
-│  │  │  - Shader rendering        │  │  │
-│  │  │  - Scroll handling         │  │  │
-│  │  └────────────────────────────┘  │  │
-│  │  ┌────────────────────────────┐  │  │
-│  │  │  physicsWorker.js          │  │  │
-│  │  │  - Particle position update│  │  │
-│  │  │  - Velocity computation    │  │  │
-│  │  │  - Respawn logic           │  │  │
-│  │  └────────────────────────────┘  │  │
-│  └──────────────────────────────────┘  │
-└──────────────┬──────────────────────────┘
-               │
-        HTTP/HTTPS API
-               │
-┌──────────────▼──────────────────────────┐
-│   Cloudflare Workers (Backend)          │
-│  ┌────────────────────────────────┐    │
-│  │  index.js (API Server)         │    │
-│  │  - /api/animation/init         │    │
-│  │  - /api/animation/init?binary=1│    │
-│  │  - Response caching (Cache API)│    │
-│  └────────────────────────────────┘    │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│         User Browser                         │
+│  ┌────────────────────────────────────────┐  │
+│  │     Frontend (Vite + Three.js)         │  │
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │  main.js (Rain + Letter Physics) │  │  │
+│  │  │  - Three.js scene setup          │  │  │
+│  │  │  - Letter drag & physics         │  │  │
+│  │  │  - Scroll handling               │  │  │
+│  │  │  - Ripple effects (jQuery)       │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │  physicsWorker.js                │  │  │
+│  │  │  - Particle physics              │  │  │
+│  │  │  - Off-main-thread compute      │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │  clickSync.js (v2.0.0+)          │  │  │
+│  │  │  - Supabase Realtime client      │  │  │
+│  │  │  - Send/receive click sync       │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  └────────────────────────────────────────┘  │
+└────────┬────────────────────────────┬────────┘
+         │                            │
+    HTTP/HTTPS API        WebSocket (Supabase Realtime)
+         │                            │
+┌────────▼──────────────┐   ┌─────────▼──────────────┐
+│  Cloudflare Workers   │   │  Supabase Realtime     │
+│  (Backend API)        │   │  (Click Broadcast)     │
+│                       │   │                        │
+│  - /api/animation/*   │   │  - Channel: rainy-     │
+│  - Config generation  │   │    clicks              │
+│  - Response caching   │   │  - Event: ripple-click │
+│                       │   │  - In-memory WS        │
+└───────────────────────┘   └────────────────────────┘
 ```
 
 ## Component Architecture
@@ -113,6 +118,42 @@ api.js
         ├── Header: rainCount, rainFloor, rainCeil, trailLength
         └── Arrays: positions, velocities, splashCount, rainIntensity
 ```
+
+### Click Sync Service (src/services/clickSync.js) [v2.0.0+]
+
+**Responsibility**: Real-time click synchronization via Supabase
+
+```
+clickSync.js
+├── initClickSync(onRemoteClick)
+│   ├── Connect to Supabase Realtime
+│   ├── Subscribe to 'rainy-clicks' channel
+│   ├── Listen for 'ripple-click' broadcast events
+│   └── Return { enabled: true/false }
+│
+├── sendLocalClick(relativeX, relativeY)
+│   ├── Encode click (version + x + y) → 17-byte buffer
+│   ├── Convert buffer to base64
+│   └── Broadcast via Supabase channel
+│
+├── Encoding Format (17 bytes total)
+│   ├── Byte 0: Version (1)
+│   ├── Bytes 1-8: X coordinate (float64, relative 0.0~1.0)
+│   └── Bytes 9-16: Y coordinate (float64, relative 0.0~1.0)
+│
+└── Self-Filter Logic
+    ├── Track last local click (x, y, timestamp)
+    ├── Skip remote clicks within 200ms and distance <0.025
+    └── Prevents echo/duplication
+```
+
+**Environment Variables**:
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+**Cost**: Free (Supabase Realtime Broadcast = in-memory, no database writes)
 
 ### Backend (backend/src/index.js)
 
