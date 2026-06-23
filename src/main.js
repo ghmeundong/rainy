@@ -6,6 +6,8 @@
 import './style.css';
 import $ from 'jquery';
 import { api } from './services/api.js';
+import { buildAnimationConfig } from './services/animationConfig.js';
+import { initClickSync, sendLocalClick } from './services/clickSync.js';
 
 window.$ = window.jQuery = $;
 
@@ -20,21 +22,31 @@ async function getAnimationConfig(width, height) {
   if (animationBackendConfig) return animationBackendConfig;
 
   try {
-    // prefer binary response for performance
+    // Prefer local generation of the animation config for lower latency.
     try {
-      animationBackendConfig = await api.animation.initBinary({
+      animationBackendConfig = buildAnimationConfig({
         width,
         height,
         devicePixelRatio,
-        isMobile: isMobile ? 'true' : 'false',
+        isMobile,
       });
-    } catch (e) {
-      animationBackendConfig = await api.animation.init({
-        width,
-        height,
-        devicePixelRatio,
-        isMobile: isMobile ? 'true' : 'false',
-      });
+    } catch (localErr) {
+      // Fallback to backend API if local generation fails for any reason
+      try {
+        animationBackendConfig = await api.animation.initBinary({
+          width,
+          height,
+          devicePixelRatio,
+          isMobile: isMobile ? 'true' : 'false',
+        });
+      } catch (e) {
+        animationBackendConfig = await api.animation.init({
+          width,
+          height,
+          devicePixelRatio,
+          isMobile: isMobile ? 'true' : 'false',
+        });
+      }
     }
   } catch (error) {
     console.warn('Animation backend initialization failed:', error);
@@ -587,7 +599,93 @@ $(document).ready(async function() {
   const letters = document.querySelectorAll('.letter');
   const banner = $('.banner')[0];
   const bannerRect = banner.getBoundingClientRect();
-  
+  // Ensure webfonts and layout are ready before measuring letters to avoid offsetWidth === 0
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Force a layout read to trigger browser measurement
+  letters.forEach((l) => l.getBoundingClientRect());
+
+  // Wait until letters have non-zero measurements (retry briefly if necessary)
+  async function waitForLetterMeasurements(nodes, maxRetries = 8, delayMs = 50) {
+    for (let i = 0; i < maxRetries; i++) {
+      const ok = Array.from(nodes).every((n) => n.offsetWidth || n.getClientRects().length);
+      if (ok) return true;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return false;
+  }
+
+  await waitForLetterMeasurements(letters);
+
+  function getRelativeBannerPoint(clientX, clientY) {
+    const rect = banner.getBoundingClientRect();
+    return {
+      x: Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, (clientY - rect.top) / rect.height)),
+    };
+  }
+
+  function triggerLocalRipple(clientX, clientY) {
+    const rect = banner.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
+  }
+
+  let lastSentLocalClick = { x: null, y: null, time: 0 };
+  let clickSyncEnabled = false;
+
+  async function handleLocalClick(clientX, clientY) {
+    triggerLocalRipple(clientX, clientY);
+    const relative = getRelativeBannerPoint(clientX, clientY);
+    lastSentLocalClick = {
+      x: relative.x,
+      y: relative.y,
+      time: Date.now(),
+    };
+    if (clickSyncEnabled) {
+      await sendLocalClick(relative.x, relative.y);
+    }
+  }
+
+  function handleRemoteClick({ x, y }) {
+    const now = Date.now();
+    if (
+      lastSentLocalClick.time > 0 &&
+      now - lastSentLocalClick.time < 200 &&
+      Math.hypot(x - lastSentLocalClick.x, y - lastSentLocalClick.y) < 0.025
+    ) {
+      return;
+    }
+
+    const rect = banner.getBoundingClientRect();
+    const px = x * rect.width;
+    const py = y * rect.height;
+    if (ripplesAvailable) $('.banner').ripples('drop', px, py, 25, 0.08);
+  }
+
+  const clickSync = await initClickSync(handleRemoteClick);
+  clickSyncEnabled = clickSync.enabled;
+  if (!clickSyncEnabled) {
+    console.info('Supabase realtime click sync disabled or unavailable.');
+  }
+
+  banner.addEventListener('click', (e) => {
+    handleLocalClick(e.clientX, e.clientY);
+  });
+
+  banner.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    handleLocalClick(touch.clientX, touch.clientY);
+  }, { passive: true });
+
   // 글자에서 ripple 효과 트리거
   letters.forEach((letter) => {
     letter.addEventListener('mouseenter', (e) => {
@@ -595,6 +693,7 @@ $(document).ready(async function() {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
+      handleLocalClick(e.clientX, e.clientY);
     });
 
     letter.addEventListener('touchstart', (event) => {
@@ -604,6 +703,7 @@ $(document).ready(async function() {
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
       if (ripplesAvailable) $('.banner').ripples('drop', x, y, 25, 0.08);
+      handleLocalClick(touch.clientX, touch.clientY);
     }, { passive: true });
   });
 
@@ -627,7 +727,19 @@ $(document).ready(async function() {
     const rect = banner.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
+    if (!isOnBanner) isOnBanner = true;
   });
+
+  // 초기 마우스 위치가 배너 위에 있는지 확인하고, 있으면 isOnBanner를 true로 설정
+  const initialMouseCheck = () => {
+    const rect = banner.getBoundingClientRect();
+    const x = window.event?.clientX ?? 0;
+    const y = window.event?.clientY ?? 0;
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      isOnBanner = true;
+    }
+  };
+  setTimeout(initialMouseCheck, 100);
 
   // 터치 시작
   banner.addEventListener('touchstart', (e) => {
@@ -653,6 +765,8 @@ $(document).ready(async function() {
   const letterStates = Array.from(letters).map((_, index) => ({
     x: 0,
     y: 0,
+    tx: 0,
+    ty: 0,
     vx: letterVelocities[index]?.vx ?? (Math.random() - 0.5) * 0.8,
     vy: letterVelocities[index]?.vy ?? (Math.random() - 0.5) * 0.8,
   }));
@@ -694,7 +808,7 @@ $(document).ready(async function() {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < repulseRadius && distance > 1) {
-          const forceStrength = isTouchActive ? 0.2 : 0.4;
+          const forceStrength = isTouchActive ? 0.1 : 0.2;
           const force = (1 - distance / repulseRadius) * forceStrength;
           const angle = Math.atan2(dy, dx);
           
@@ -716,16 +830,16 @@ $(document).ready(async function() {
           const nx = dx / distance;
           const ny = dy / distance;
           
-          state.x += nx * overlap * 0.5;
-          state.y += ny * overlap * 0.5;
-          other.x -= nx * overlap * 0.5;
-          other.y -= ny * overlap * 0.5;
+          state.x += nx * overlap * 0.3;
+          state.y += ny * overlap * 0.3;
+          other.x -= nx * overlap * 0.3;
+          other.y -= ny * overlap * 0.3;
           
           const relVx = state.vx - other.vx;
           const relVy = state.vy - other.vy;
           const bounce = relVx * nx + relVy * ny;
           if (bounce < 0) {
-            const impulse = -bounce * 0.4;
+            const impulse = -bounce * 0.2;
             state.vx += nx * impulse;
             state.vy += ny * impulse;
             other.vx -= nx * impulse;
@@ -734,10 +848,17 @@ $(document).ready(async function() {
         }
       });
       
+      // Add viscous drag for floating water-like movement.
+      const dragFactor = 0.96;
+      const stiffness = 0.018;
+      const targetX = state.tx || state.x;
+      const targetY = state.ty || state.y;
+      state.vx += (targetX - state.x) * stiffness;
+      state.vy += (targetY - state.y) * stiffness;
       state.vx += (Math.random() - 0.5) * 0.015;
       state.vy += (Math.random() - 0.5) * 0.015;
-      state.vx *= 0.98;
-      state.vy *= 0.98;
+      state.vx *= dragFactor;
+      state.vy *= dragFactor;
       state.x += state.vx;
       state.y += state.vy;
       state.x = Math.max(25, Math.min(rect.width - 25, state.x));
@@ -749,10 +870,14 @@ $(document).ready(async function() {
 
   const bannerObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      bannerVisible = entry.intersectionRatio > 0;
+      bannerVisible = entry.isIntersecting;
     });
-  }, { threshold: 0.01 });
+  }, { threshold: 0 });
   bannerObserver.observe(banner);
+
+  // Initialize banner visibility immediately so letter physics can start without waiting.
+  const bannerRectInit = banner.getBoundingClientRect();
+  bannerVisible = !document.hidden && bannerRectInit.width > 0 && bannerRectInit.height > 0;
 
   addRenderHook(() => animateLetters());
 

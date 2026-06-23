@@ -1,4 +1,4 @@
-# 🌧️ Rainy
+# 🌧️ Rainy (v2.0.0)
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Now-blue?style=for-the-badge&logo=github)](https://ghmeundong.github.io/rainy/)
 ![Stars](https://img.shields.io/github/stars/ghmeundong/rainy?style=for-the-badge)
@@ -7,9 +7,9 @@
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite)
 ![Three.js](https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js)
 
-**After the Rain** — immersive 3D rain-aftermath visualization with server-generated animation, Web Worker physics, and Cloudflare Workers.
+**After the Rain** — immersive 3D rain-aftermath visualization. v2.0.0 introduces client-first animation initialization, lightweight backend hints, improved letter physics, and optional Supabase Realtime click synchronization.
 
-Rainy renders the calm scene after a storm with drifting droplets, soft ripples, and reflective rain effects.
+Rainy renders the calm scene after a storm with drifting droplets, soft ripples, reflective surfaces, and synchronized interactive ripples across clients.
 
 Live demo: https://ghmeundong.github.io/rainy/
 
@@ -29,6 +29,10 @@ Live demo: https://ghmeundong.github.io/rainy/
 - Cloudflare Workers backend generates animation state and serves compact binary payloads
 - Web Workers handle physics for smooth, low-latency rendering
 - Simple deploy path: GitHub Pages frontend + serverless backend
+ - v2.0.0 additions:
+   - Frontend-first animation config generation with backend compact hints
+   - Supabase Realtime optional click sync (17-byte binary payload)
+   - Tuned letter physics for lighter, water-like motion
 
 ---
 

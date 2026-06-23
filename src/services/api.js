@@ -8,6 +8,7 @@
  */
 
 const DEFAULT_LOCAL = 'https://localhost:8787';
+import { buildAnimationConfig } from './animationConfig.js';
 let API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_LOCAL;
 
 if (typeof window !== 'undefined') {
@@ -94,6 +95,27 @@ class ApiService {
       const velLen = rainCount * 3;
       const letterLen = letterCount * 2;
 
+      const expectedBytes = (4 * 7) + (posLen + velLen + letterLen) * 4;
+
+      // If backend returned a compact hint (no heavy arrays), fall back to local generation
+      if (buf.byteLength < expectedBytes) {
+        const cfg = buildAnimationConfig({
+          width: Number(params.width) || window.innerWidth,
+          height: Number(params.height) || window.innerHeight,
+          devicePixelRatio: Number(params.devicePixelRatio) || window.devicePixelRatio || 1,
+          isMobile: params.isMobile === 'true' || params.isMobile === true,
+        });
+
+        return {
+          ...cfg,
+          physics: {
+            gravity: 0.08,
+            devicePixelRatio: Number(params.devicePixelRatio) || window.devicePixelRatio || 1,
+            isMobile: params.isMobile === 'true' || params.isMobile === true,
+          },
+        };
+      }
+
       const positions = new Float32Array(buf, offset, posLen); offset += posLen * 4;
       const velocities = new Float32Array(buf, offset, velLen); offset += velLen * 4;
       const letterFlat = new Float32Array(buf, offset, letterLen); offset += letterLen * 4;
@@ -115,7 +137,7 @@ class ApiService {
         letterVelocities,
         physics: {
           gravity: 0.08,
-          devicePixelRatio: Number(params.devicePixelRatio) || 1,
+          devicePixelRatio: Number(params.devicePixelRatio) || window.devicePixelRatio || 1,
           isMobile: params.isMobile === 'true' || params.isMobile === true,
         },
       };

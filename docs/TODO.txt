@@ -2,29 +2,39 @@
 rainy v2.0.0 개발, 최적화 및 구조 변경 TODO 메모
 =================================================================
 
+진행 상황 (2026-06-23):
+ ✅ TODO 1: 프론트엔드 애니메이션 초기화 마이그레이션
+    - src/services/animationConfig.js 생성: 클라이언트 측 설정 생성 로직
+    - src/main.js 업데이트: 로컬 생성 우선, 백엔드 폴백 구현
+    - 백엔드 페이로드 경량화 (heavy arrays 제거)
 
- TODO 1: [구조 변경] 백엔드(Workers) 연산 프론트엔드로 완전 이관 (트래픽 지연 제거)
- - 기존의 /api/animation/init 등 백엔드에서 바이너리를 생성하던 무거운 연산을 프론트엔드로 이동
- - 이유: 네트워크 왕복(RTT)으로 인한 초기 로딩 지연을 없애고 즉각적인 화면 렌더링 보장
- - 백엔드(Workers)는 순수 정적 파일 서빙 또는 가벼운 API 역할만 수행하도록 다이어트
+ ✅ TODO 2: 글자 물리 폰트/레이아웃 대기
+    - document.fonts.ready 대기 및 waitForLetterMeasurements() 구현
+    - 글자 offsetWidth 측정 완료 후 물리 시뮬레이션 시작
+    
+ ✅ TODO 4: 모바일 크기 스케일링 (부분)
+    - isMobile 플래그 활용하여 rippleConfig 조정
+    - 반응형 크기 처리 로직 기본 구현
 
- TODO 2: [버그 수정] "escampar" 글자 물리 비동기 await 처리
- - 원인: 기존엔 비동기 세팅(폰트/레이아웃 완료)을 기다리지 않아 첫 로드 시 offsetWidth가 0이 됨
- - 해결: $(document).ready 내부를 async function으로 변경
-   1) 프론트엔드로 이관된 초기화 설정을 await로 확실히 수신/계산
-   2) await document.fonts.ready로 웹폰트 로드를 보장한 후 글자 폭 측정 및 좌표 배치 실행
+ ✅ TODO 5: Supabase Realtime 기반 클릭 동기화 (바이너리 포맷)
+    - 기술: Supabase Realtime Broadcast(인메모리 웹소켓)를 활용해 비용 0원 유지
+    - 데이터 포맷: JSON 대신 해상도 독립적인 '상대 좌표(0.0~1.0)'를 17바이트 ArrayBuffer에 담아 쏴줌
+    - 흐름: 내 화면 클릭 감지 -> sendLocalClick(상대좌표 buffer) -> 타인 수신 -> 내 해상도에 맞춰 픽셀 변환 후 리플 트리거
+    - 자체 클릭 필터링: 200ms + 거리 0.025 이내 중복 제거
+    - 구현 파일: src/services/clickSync.js, src/main.js 연동
 
- TODO 3: [성능 최적화] 웹 워커(physicsWorker.js) 메인 스레드 통신 소유권 이전 (Transferable)
- - 변경 전: postMessage({ buffer: arrayBuffer }) -> 내부적으로 복사(Structured Clone) 발생
- - 변경 후: postMessage(arrayBuffer, [arrayBuffer]) -> 복사 없이 메모리 주소 통째로 소유권 이전
- - 효과: 메인 스레드 <-> 워커 간의 데이터 복사 비용이 0이 되어 대규모 물리 연산 시 프레임 드랍(Jank) 방지
+ 🔄 TODO 3: Transferable 객체를 이용한 워커 메시징 최적화
+    - 아직 미완료: physicsWorker에서 ArrayBuffer 소유권 이전 필요
 
- TODO 4: [모바일 최적화] 기기별 해상도 및 연산 스케일링 대응
- - 이펙트 갯수 조절: `isMobile` 플래그를 활용해 모바일 환경에서는 가볍게 돌아가도록 카운트(count) 제한
- - 렌더링 비율 제한: 해상도가 매우 높은 디바이스(Retina 등)라도 렌더러의 `devicePixelRatio`를 최대 2로 고정
-   (예: renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))) -> GPU 부하 및 발열 최소화
+ 🔄 TODO 6: v2.0.0 릴리스 플랜 및 변경 로그
+    - 아직 미완료: 릴리스 노트 작성 필요
 
- TODO 5: [v2 신규 기능] Supabase Realtime 기반 클릭 동기화 (바이너리 포맷)
- - 기술: Supabase Realtime Broadcast(인메모리 웹소켓)를 활용해 비용 0원 유지
- - 데이터 포맷: JSON 대신 해상도 독립적인 '상대 좌표(0.0~1.0)'를 17바이트 ArrayBuffer에 담아 쏴줌
- - 흐름: 내 화면 클릭 감지 -> sendLocalClick(상대좌표 buffer) -> 타인 수신 -> 내 해상도에 맞춰 픽셀 변환 후 리플 트리거(가짜 클릭 이벤트 발생 방식으로)
+추가 개선 (2026-06-23):
+ ✅ 글자 물리 파라미터 미세 조정
+    - dragFactor: 0.92 → 0.96 (감쇠 감소)
+    - stiffness: 0.03 → 0.018 (복원력 약화)
+    - 효과: 물 위의 부유한 느낌, 부드러운 복원
+    
+ ✅ 즉시 마우스 감지
+    - 페이지 로드 직후 마우스가 배너 위에 있으면 즉시 감지
+    - 글자가 바로 반응하도록 개선
