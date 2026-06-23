@@ -3,7 +3,7 @@
     "postCreateCommand": "npm install && (cd backend && npm install)",
     
     // 백그라운드 구동 방식을 변경하고 마지막에 프로세스가 끝나지 않도록 대기시킵니다.
-    "postStartCommand": "npm run dev > frontend.log 2>&1 & (cd backend && npm run dev > backend.log 2>&1) & echo '' && echo ' [ready for local test]' && echo ' Frontend: http://localhost:5173' && echo ' Backend: http://localhost:8787' && echo '' && tail -f /dev/null",
+    "postStartCommand": "npm run dev & (cd backend && npm run dev) & sleep 5 && echo '' && echo ' [ready for local test]' && echo ' Frontend: http://localhost:5173' && echo ' Backend: http://localhost:8787' && echo '' && tail -f /dev/null",
 
     // 컨테이너가 켜지면 자동으로 이 포트들을 외부(호스트)로 연결해 줍니다.
     "forwardPorts": [5173, 8787],
