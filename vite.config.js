@@ -1,10 +1,24 @@
 import { defineConfig } from 'vite'
 import path from 'path'
+import viteImagemin from 'vite-plugin-imagemin';
+
+const __dirname = path.resolve();
 
 export default defineConfig({
   root: './',
   base: '/rainy/',
   publicDir: 'public',
+  plugins: [
+    viteImagemin({
+      gifsicle: { optimizationLevel: 7, interlaced: false },
+      optipng: { optimizationLevel: 7 },
+      mozjpeg: { quality: 80 },
+      pngquant: { quality: [0.8, 0.9], speed: 4 },
+      webp: {
+        quality: 80 // PNG/JPG를 빌드할 때 퀄리티 80짜리 WebP로 자동 전환
+      }
+    })
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
