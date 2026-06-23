@@ -1,5 +1,22 @@
 {
     "name": "Dev Environment",
     "postCreateCommand": "npm install && (cd backend && npm install)",
-    "postStartCommand": "npm run dev & (cd backend && npm run dev) & sleep 4 && echo '' && echo ' [로컬 테스트 준비 완료!]' && echo ' Frontend: http://localhost:5173' && echo ' Backend: http://localhost:8787' && echo ''"
+    
+    // 백그라운드 구동 방식을 변경하고 마지막에 프로세스가 끝나지 않도록 대기시킵니다.
+    "postStartCommand": "npm run dev > frontend.log 2>&1 & (cd backend && npm run dev > backend.log 2>&1) & echo '' && echo ' [ready for local test]' && echo ' Frontend: http://localhost:5173' && echo ' Backend: http://localhost:8787' && echo '' && tail -f /dev/null",
+
+    // 컨테이너가 켜지면 자동으로 이 포트들을 외부(호스트)로 연결해 줍니다.
+    "forwardPorts": [5173, 8787],
+
+    // 포트가 열렸을 때 알림이 뜨거나 자동으로 브라우저가 열리게 설정할 수도 있습니다.
+    "portsAttributes": {
+        "5173": {
+            "label": "Frontend (Vite)",
+            "onAutoForward": "notify"
+        },
+        "8787": {
+            "label": "Backend",
+            "onAutoForward": "silent"
+        }
+    }
 }
