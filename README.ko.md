@@ -1,4 +1,4 @@
-# 🌧️ Rainy
+# 🌧️ Rainy (v2.0.0)
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Now-blue?style=for-the-badge&logo=github)](https://ghmeundong.github.io/rainy/)
 ![Stars](https://img.shields.io/github/stars/ghmeundong/rainy?style=for-the-badge)
@@ -7,9 +7,9 @@
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite)
 ![Three.js](https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js)
 
-**After the Rain** — 서버 생성 애니메이션, Web Worker 물리, Cloudflare Workers로 구동되는 몰입형 3D 비 이후 시각화.
+**After the Rain** — 몰입형 3D 비 이후 시각화. v2.0.0에서는 클라이언트 우선 애니메이션 초기화, 경량화된 백엔드 힌트, 개선된 글자 물리, 선택적 Supabase Realtime 클릭 동기화를 도입했습니다.
 
-Rainy는 폭우가 그친 뒤의 고요한 장면을 드리프트하는 물방울, 부드러운 파문, 반사 효과와 함께 렌더링합니다.
+Rainy는 폭우가 그친 뒤의 고요한 장면을 드리프트하는 물방울, 부드러운 파문, 반사 효과와 함께 렌더링하며, 여러 사용자 간 리플 동기화도 지원합니다.
 
 Live demo: https://ghmeundong.github.io/rainy/
 
@@ -29,6 +29,11 @@ Live demo: https://ghmeundong.github.io/rainy/
 - Cloudflare Workers 백엔드가 애니메이션 상태를 생성하고 컴팩트한 바이너리 페이로드를 제공
 - Web Worker가 물리 연산을 처리하여 부드럽고 저지연 렌더링 지원
 - GitHub Pages 프론트엔드 + 서버리스 백엔드의 간단한 배포 경로
+
+- v2.0.0 추가 기능:
+  - 프론트엔드 우선 애니메이션 설정 생성 및 백엔드 컴팩트 힌트
+  - Supabase Realtime 기반 클릭 동기화 (17바이트 바이너리)
+  - 글자 물리 조정으로 물 위에 떠 있는 듯한 부드러운 반응
 
 ---
 
