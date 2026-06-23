@@ -1,3 +1,8 @@
+// TODO: physicsWorker.js에서 데이터를 메인 스레드로 postMessage할 때, ArrayBuffer를 복사하지 않고 소유권을 완전히 이전하도록 코드를 변경
+// TODO: isMobile  모바일쪽 size 활용, 대신 count 갯수를 줄이기
+// TODO: 해상도가 높아도 랜더링 비율 2로 고정
+
+
 import './style.css';
 import $ from 'jquery';
 import { api } from './services/api.js';

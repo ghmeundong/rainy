@@ -115,40 +115,39 @@ npm run deploy       # Deploy to GitHub Pages
 
 # Backend
 cd backend
-npm run dev          # Cloudflare Workers local development
-npm run deploy -- --env production  # Deploy Cloudflare Workers
-```
+## 🧭 Getting Started (Clone & Reproduce Development Environment)
 
----
-
-## 📦 Tech Stack
-
-### Frontend
-- **Vite**: fast bundler
-- **jQuery**: water ripple effect
-- **Three.js**: 3D rain rendering
-- **RainyDay.js**: glass droplet effect
-
-### Backend
-- **Cloudflare Workers**: serverless API
-- **Wrangler**: local development and deployment
-- **CORS**: cross-origin request support
-
----
-
-## 🚀 Deployment
-
-### Frontend (GitHub Pages)
+These steps let a new contributor reproduce your local development environment exactly (requires Docker + VS Code Remote - Containers):
 
 ```bash
-npm run build
-npm run deploy
+# Clone the repo
+git clone <repo-url>
+cd rainy
+
+# (Optional) copy env example
+cp .env.example .env
+
+# Open in VS Code and reopen in container:
+# 1. Open VS Code in this folder
+# 2. Command Palette -> Dev Containers: Reopen in Container
+
+# Or run locally without container:
+npm install
+npm run prepare   # installs husky hooks
+npm run dev
+
+# Backend (in separate shell)
+cd backend
+npm install
+npm run dev
 ```
 
-### Backend (Cloudflare Workers)
+Troubleshooting:
 
-- `backend/wrangler.toml` is used to deploy Workers
-- Environment variables can be configured in the Cloudflare dashboard or `wrangler.toml`
+- If Husky hooks don't run, ensure Git is installed inside the container and run `npm run prepare` manually.
+- Copy `.env.example` to `.env` and fill the Cloudflare secrets locally — never commit secrets.
+- If local fallback assets under `public/js/` are missing, copy them from `public/js/` in the repo or run `npm run build` to generate assets.
+
 
 ---
 

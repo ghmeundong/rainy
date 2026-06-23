@@ -120,6 +120,38 @@ npm run deploy -- --env production  # Deploy Cloudflare Workers
 ```
 
 ---
+## 🧭 시작하기 (클론 및 개발 환경 재현)
+
+새 기여자가 로컬 개발 환경을 동일하게 재현하도록 하는 단계입니다. Docker와 VS Code의 Remote - Containers 확장이 필요합니다.
+
+```bash
+# 레포 클론
+git clone <repo-url>
+cd rainy
+
+# (선택) 환경 변수 템플릿 복사
+cp .env.example .env
+
+# VS Code에서 컨테이너로 열기:
+# 1. VS Code로 폴더 열기
+# 2. Command Palette -> Dev Containers: Reopen in Container
+
+# 또는 컨테이너 없이 로컬에서 실행:
+npm install
+npm run prepare   # husky 훅 설치
+npm run dev
+
+# 백엔드 (별도 터미널)
+cd backend
+npm install
+npm run dev
+```
+
+문제 해결 가이드:
+
+- Husky 훅이 동작하지 않으면 컨테이너 내부에 Git이 설치되어 있는지 확인하고 `npm run prepare`를 수동으로 실행하세요.
+- `.env.example`를 복사해 `.env`로 만들고 Cloudflare 관련 비밀값은 로컬에서만 설정하세요. 절대 커밋하지 마세요.
+- `public/js/`에 오프라인 폴백 자산이 없으면 리포지토리에서 복사하거나 `npm run build`로 생성하세요.
 
 ## 📦 기술 스택
 

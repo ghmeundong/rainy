@@ -1,0 +1,19 @@
+{
+  "name": "rainy Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:0-22",
+  "features": {
+    "ghcr.io/devcontainers/features/git:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "stylelint.vscode-stylelint"
+      ]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
+  "remoteUser": "node",
+  "workspaceFolder": "/workspace"
+}

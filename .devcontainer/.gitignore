@@ -1,0 +1,3 @@
+# Local Dev Container files
+.devcontainer/**/*.log
+.devcontainer/.vscode/**
