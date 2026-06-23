@@ -6,6 +6,7 @@
 import './style.css';
 import $ from 'jquery';
 import { api } from './services/api.js';
+import { buildAnimationConfig } from './services/animationConfig.js';
 
 window.$ = window.jQuery = $;
 
@@ -20,21 +21,31 @@ async function getAnimationConfig(width, height) {
   if (animationBackendConfig) return animationBackendConfig;
 
   try {
-    // prefer binary response for performance
+    // Prefer local generation of the animation config for lower latency.
     try {
-      animationBackendConfig = await api.animation.initBinary({
+      animationBackendConfig = buildAnimationConfig({
         width,
         height,
         devicePixelRatio,
-        isMobile: isMobile ? 'true' : 'false',
+        isMobile,
       });
-    } catch (e) {
-      animationBackendConfig = await api.animation.init({
-        width,
-        height,
-        devicePixelRatio,
-        isMobile: isMobile ? 'true' : 'false',
-      });
+    } catch (localErr) {
+      // Fallback to backend API if local generation fails for any reason
+      try {
+        animationBackendConfig = await api.animation.initBinary({
+          width,
+          height,
+          devicePixelRatio,
+          isMobile: isMobile ? 'true' : 'false',
+        });
+      } catch (e) {
+        animationBackendConfig = await api.animation.init({
+          width,
+          height,
+          devicePixelRatio,
+          isMobile: isMobile ? 'true' : 'false',
+        });
+      }
     }
   } catch (error) {
     console.warn('Animation backend initialization failed:', error);
