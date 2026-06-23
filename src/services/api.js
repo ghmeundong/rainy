@@ -7,17 +7,26 @@
  * const animationData = await api.animation.init({ width: 1200, height: 600 })
  */
 
-const DEFAULT_LOCAL = 'http://localhost:8787';
+const DEFAULT_LOCAL = 'https://localhost:8787';
 let API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_LOCAL;
 
 if (typeof window !== 'undefined') {
-  // If the app was built with the default local URL but is running on GitHub Pages
-  // (or another production host), fall back to the known production API host so
-  // the deployed site doesn't try to call a localhost backend.
   const host = window.location.hostname || '';
-  if ((API_BASE_URL === DEFAULT_LOCAL || /localhost/.test(API_BASE_URL)) &&
-      (host.endsWith('.github.io') || host === 'ghmeundong.github.io')) {
-    API_BASE_URL = 'https://rainy-api-production.ghmeundong.workers.dev';
+  
+  // 원래 localhost를 보려고 했거나, GitHub Pages 혹은 GitHub Codespaces에서 실행 중일 때
+  if (
+    API_BASE_URL === DEFAULT_LOCAL || 
+    /localhost/.test(API_BASE_URL) || 
+    host.endsWith('.github.dev') // 👈 Codespaces 환경 대응 추가
+  ) {
+    // 현재 접속한 프론트엔드 URL 주소 구조를 활용해 백엔드 Codespaces 주소를 동적으로 생성
+    if (host.endsWith('.github.dev')) {
+  // 원래 호스트 이름에서 포트 번호(예: -5173)가 붙어 있다면 먼저 제거해 줍니다.
+  const baseHost = host.replace('-5173', '').replace('.github.dev', '').replace('.app', '');
+  API_BASE_URL = `https://${baseHost}-8787.app.github.dev`;
+      } else if (host.endsWith('.github.io') || host === 'ghmeundong.github.io') {
+      API_BASE_URL = 'https://rainy-api-production.ghmeundong.workers.dev';
+    }
   }
 }
 
