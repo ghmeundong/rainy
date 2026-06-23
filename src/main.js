@@ -1,4 +1,3 @@
-// TODO: physicsWorker.js에서 데이터를 메인 스레드로 postMessage할 때, ArrayBuffer를 복사하지 않고 소유권을 완전히 이전하도록 코드를 변경
 // TODO: isMobile  모바일쪽 size 활용, 대신 count 갯수를 줄이기
 // TODO: 해상도가 높아도 랜더링 비율 2로 고정
 
@@ -208,10 +207,9 @@ async function initThreeScene() {
     physicsWorker.onmessage = (ev) => {
       const msg = ev.data;
       if (msg && msg.type === 'update' && msg.rainPositions) {
-        // Structured-cloned Float32Array
-        latestWorkerPositions = msg.rainPositions;
+        // Transferable: reuse the transferred ArrayBuffer without copying
         const posAttr = rainGeometry.getAttribute('position');
-        posAttr.array.set(latestWorkerPositions);
+        posAttr.array = new Float32Array(msg.rainPositions.buffer);
         posAttr.needsUpdate = true;
       }
     };
@@ -220,12 +218,21 @@ async function initThreeScene() {
     physicsWorker = null;
   }
 
-  const rainTrails = Array.from({ length: rainCount }, (_, i) => {
+  const rainTrails = new Float32Array(rainCount * trailLength * 3);
+  const rainTrailHeads = new Uint16Array(rainCount);
+  for (let i = 0; i < rainCount; i++) {
     const x = rainPositions[i * 3];
     const y = rainPositions[i * 3 + 1];
     const z = rainPositions[i * 3 + 2];
-    return Array.from({ length: trailLength }, () => ({ x, y, z }));
-  });
+    const base = i * trailLength * 3;
+    for (let j = 0; j < trailLength; j++) {
+      const idx = base + j * 3;
+      rainTrails[idx] = x;
+      rainTrails[idx + 1] = y;
+      rainTrails[idx + 2] = z;
+    }
+    rainTrailHeads[i] = trailLength - 1;
+  }
 
   const rainGeometry = new THREE.BufferGeometry();
   rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
@@ -309,6 +316,7 @@ async function initThreeScene() {
     const posArray = posAttr.array;
     const trailAttr = trailGeometry.getAttribute('position');
     const trailArray = trailAttr.array;
+    const trailColorArray = trailGeometry.getAttribute('color').array;
     let trailIndex = 0;
 
     // Ask worker to advance physics (non-blocking)
@@ -329,33 +337,37 @@ async function initThreeScene() {
       const posX = posArray[i * 3];
       const posY = posArray[i * 3 + 1];
       const posZ = posArray[i * 3 + 2];
+      const base = i * trailLength * 3;
+      const head = rainTrailHeads[i] = (rainTrailHeads[i] + 1) % trailLength;
+      const headIndex = base + head * 3;
+      rainTrails[headIndex] = posX;
+      rainTrails[headIndex + 1] = posY;
+      rainTrails[headIndex + 2] = posZ;
 
-      rainTrails[i].unshift({ x: posX, y: posY, z: posZ });
-      if (rainTrails[i].length > trailLength) rainTrails[i].pop();
+      const length = trailLength;
+      if (length > 1) {
+        for (let t = 0; t < length - 1; t++) {
+          const current = (head - t + length) % length;
+          const next = (head - t - 1 + length) % length;
+          const aIndex = base + current * 3;
+          const bIndex = base + next * 3;
+          trailArray[trailIndex++] = rainTrails[aIndex];
+          trailArray[trailIndex++] = rainTrails[aIndex + 1];
+          trailArray[trailIndex++] = rainTrails[aIndex + 2];
+          trailArray[trailIndex++] = rainTrails[bIndex];
+          trailArray[trailIndex++] = rainTrails[bIndex + 1];
+          trailArray[trailIndex++] = rainTrails[bIndex + 2];
 
-      if (rainTrails[i].length > 1) {
-        for (let t = 0; t < rainTrails[i].length - 1; t++) {
-          const a = rainTrails[i][t];
-          const b = rainTrails[i][t + 1];
-          trailArray[trailIndex++] = a.x;
-          trailArray[trailIndex++] = a.y;
-          trailArray[trailIndex++] = a.z;
-          trailArray[trailIndex++] = b.x;
-          trailArray[trailIndex++] = b.y;
-          trailArray[trailIndex++] = b.z;
-          // color fade: head brighter, tail dimmer
-          const fadeA = 1 - t / Math.max(1, rainTrails[i].length - 1);
-          const fadeB = 1 - (t + 1) / Math.max(1, rainTrails[i].length - 1);
-          const colorHead = 0.9 * fadeA + 0.1; // luminance
+          const fadeA = 1 - t / Math.max(1, length - 1);
+          const fadeB = 1 - (t + 1) / Math.max(1, length - 1);
+          const colorHead = 0.9 * fadeA + 0.1;
           const colorTail = 0.9 * fadeB + 0.1;
-          const colorIndexA = (trailIndex / 3 - 2) * 3; // back-calc index for color array
-          const colorIndexB = (trailIndex / 3 - 1) * 3;
-          trailGeometry.getAttribute('color').array[colorIndexA] = 0.8 * colorHead;
-          trailGeometry.getAttribute('color').array[colorIndexA + 1] = 0.9 * colorHead;
-          trailGeometry.getAttribute('color').array[colorIndexA + 2] = 1.0 * colorHead;
-          trailGeometry.getAttribute('color').array[colorIndexB] = 0.8 * colorTail;
-          trailGeometry.getAttribute('color').array[colorIndexB + 1] = 0.9 * colorTail;
-          trailGeometry.getAttribute('color').array[colorIndexB + 2] = 1.0 * colorTail;
+          trailColorArray[(trailIndex / 3 - 2) * 3] = 0.8 * colorHead;
+          trailColorArray[(trailIndex / 3 - 2) * 3 + 1] = 0.9 * colorHead;
+          trailColorArray[(trailIndex / 3 - 2) * 3 + 2] = 1.0 * colorHead;
+          trailColorArray[(trailIndex / 3 - 1) * 3] = 0.8 * colorTail;
+          trailColorArray[(trailIndex / 3 - 1) * 3 + 1] = 0.9 * colorTail;
+          trailColorArray[(trailIndex / 3 - 1) * 3 + 2] = 1.0 * colorTail;
         }
       }
 
@@ -363,7 +375,15 @@ async function initThreeScene() {
         createSplash(posX, rainIntensity);
         posArray[i * 3 + 1] = rainCeil;
         posArray[i * 3] = (Math.random() - 0.5) * 100;
-        rainTrails[i] = Array.from({ length: trailLength }, () => ({ x: posArray[i * 3], y: rainCeil, z: posArray[i * 3 + 2] }));
+        const resetX = posArray[i * 3];
+        const resetZ = posArray[i * 3 + 2];
+        for (let j = 0; j < trailLength; j++) {
+          const idx = base + j * 3;
+          rainTrails[idx] = resetX;
+          rainTrails[idx + 1] = rainCeil;
+          rainTrails[idx + 2] = resetZ;
+        }
+        rainTrailHeads[i] = trailLength - 1;
       }
     }
 
@@ -1050,10 +1070,10 @@ $(document).ready(async function() {
     let portraitLoaded = leftImg?.complete || false;
     let fallbackLoopFn = null;
     let resizeSyncTimeout = null;
+    const DPR = window.devicePixelRatio || 1;
 
     function syncRainCanvasSize() {
       if (!leftImg || !leftCanvas) return;
-      const DPR = window.devicePixelRatio || 1;
       const imgW = Math.max(1, leftImg.clientWidth);
       const imgH = Math.max(1, leftImg.clientHeight);
       leftCanvas.style.width = imgW + 'px';

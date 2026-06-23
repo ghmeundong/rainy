@@ -31,7 +31,8 @@ self.onmessage = (ev) => {
       }
     }
 
-    // send back updated positions (structured-cloned)
-    postMessage({ type: 'update', rainPositions: pos }, []);
+    // copy into a transfer buffer so worker keeps using its own positions
+    const transferPositions = new Float32Array(pos);
+    postMessage({ type: 'update', rainPositions: transferPositions }, [transferPositions.buffer]);
   }
 };
