@@ -687,6 +687,8 @@ $(document).ready(async function() {
   const letterStates = Array.from(letters).map((_, index) => ({
     x: 0,
     y: 0,
+    tx: 0,
+    ty: 0,
     vx: letterVelocities[index]?.vx ?? (Math.random() - 0.5) * 0.8,
     vy: letterVelocities[index]?.vy ?? (Math.random() - 0.5) * 0.8,
   }));
@@ -728,7 +730,7 @@ $(document).ready(async function() {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < repulseRadius && distance > 1) {
-          const forceStrength = isTouchActive ? 0.2 : 0.4;
+          const forceStrength = isTouchActive ? 0.1 : 0.2;
           const force = (1 - distance / repulseRadius) * forceStrength;
           const angle = Math.atan2(dy, dx);
           
@@ -750,16 +752,16 @@ $(document).ready(async function() {
           const nx = dx / distance;
           const ny = dy / distance;
           
-          state.x += nx * overlap * 0.5;
-          state.y += ny * overlap * 0.5;
-          other.x -= nx * overlap * 0.5;
-          other.y -= ny * overlap * 0.5;
+          state.x += nx * overlap * 0.3;
+          state.y += ny * overlap * 0.3;
+          other.x -= nx * overlap * 0.3;
+          other.y -= ny * overlap * 0.3;
           
           const relVx = state.vx - other.vx;
           const relVy = state.vy - other.vy;
           const bounce = relVx * nx + relVy * ny;
           if (bounce < 0) {
-            const impulse = -bounce * 0.4;
+            const impulse = -bounce * 0.2;
             state.vx += nx * impulse;
             state.vy += ny * impulse;
             other.vx -= nx * impulse;
@@ -768,10 +770,17 @@ $(document).ready(async function() {
         }
       });
       
+      // Add viscous drag for sticky movement.
+      const dragFactor = 0.92;
+      const stiffness = 0.03;
+      const targetX = state.tx || state.x;
+      const targetY = state.ty || state.y;
+      state.vx += (targetX - state.x) * stiffness;
+      state.vy += (targetY - state.y) * stiffness;
       state.vx += (Math.random() - 0.5) * 0.015;
       state.vy += (Math.random() - 0.5) * 0.015;
-      state.vx *= 0.98;
-      state.vy *= 0.98;
+      state.vx *= dragFactor;
+      state.vy *= dragFactor;
       state.x += state.vx;
       state.y += state.vy;
       state.x = Math.max(25, Math.min(rect.width - 25, state.x));
@@ -783,10 +792,14 @@ $(document).ready(async function() {
 
   const bannerObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      bannerVisible = entry.intersectionRatio > 0;
+      bannerVisible = entry.isIntersecting;
     });
-  }, { threshold: 0.01 });
+  }, { threshold: 0 });
   bannerObserver.observe(banner);
+
+  // Initialize banner visibility immediately so letter physics can start without waiting.
+  const bannerRectInit = banner.getBoundingClientRect();
+  bannerVisible = !document.hidden && bannerRectInit.width > 0 && bannerRectInit.height > 0;
 
   addRenderHook(() => animateLetters());
 

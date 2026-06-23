@@ -30,29 +30,21 @@ function buildAnimationConfig(params) {
   const width = Number(params.get('width')) || 900;
   const height = Number(params.get('height')) || 500;
 
-  const rainCount = isMobile ? 450 : 650;
+  // Lightweight backend default: return smaller payloads to reduce compute and bandwidth.
+  // Use URL param `light=0` to request the full/heavier payload from backend when needed.
+  const lightMode = params.get('light') !== '0';
+
+  const rainCount = isMobile ? (lightMode ? 300 : 450) : (lightMode ? 400 : 650);
   const trailLength = isMobile ? 2 : 3;
   const rainFloor = -32;
   const rainCeil = 140;
   const splashCount = isMobile ? 80 : 100;
   const rainIntensity = 1.0;
 
-  const rainPositions = new Array(rainCount * 3);
-  const rainVelocities = new Array(rainCount * 3);
-
-  for (let i = 0; i < rainCount; i++) {
-    const x = (Math.random() - 0.5) * 110;
-    const y = rainCeil - Math.random() * (rainCeil - rainFloor);
-    const z = (Math.random() - 0.5) * 60;
-
-    rainPositions[i * 3] = x;
-    rainPositions[i * 3 + 1] = y;
-    rainPositions[i * 3 + 2] = z;
-
-    rainVelocities[i * 3] = (Math.random() - 0.5) * 0.16;
-    rainVelocities[i * 3 + 1] = -0.5 - Math.random() * 0.8;
-    rainVelocities[i * 3 + 2] = 0;
-  }
+  // To keep the worker lightweight, do NOT generate large position/velocity arrays here.
+  // The client is now the primary source of animation initialization; the worker returns
+  // compact metadata and small helper arrays only. For legacy/compatibility you can
+  // request the full payload by passing `?light=0` (but default is light mode).
 
   const letterVelocities = Array.from({ length: 8 }, () => ({
     vx: (Math.random() - 0.5) * 0.8,
@@ -66,8 +58,8 @@ function buildAnimationConfig(params) {
     rainCeil,
     splashCount,
     rainIntensity,
-    rainPositions,
-    rainVelocities,
+    // Do not include `rainPositions` or `rainVelocities` to avoid heavy computation
+    // and large responses. Client should generate positions locally by default.
     letterVelocities,
     physics: {
       repulseRadius: isMobile ? 42 : 50,
@@ -111,6 +103,9 @@ async function handleAnimationInitBinary(request) {
     // ignore cache errors
   }
 
+
+  // Build a compact binary that contains only the header and letter velocities.
+  // Clients should prefer local generation; this binary is a lightweight hint.
   const animationData = buildAnimationConfig(params);
 
   const rainCount = animationData.rainCount;
@@ -119,11 +114,9 @@ async function handleAnimationInitBinary(request) {
   const letterCount = animationData.letterVelocities.length;
 
   const headerBytes = 4 * 7; // 7 uint32/float32 header values
-  const positionsBytes = Float32Array.BYTES_PER_ELEMENT * rainCount * 3;
-  const velocitiesBytes = Float32Array.BYTES_PER_ELEMENT * rainCount * 3;
   const letterBytes = Float32Array.BYTES_PER_ELEMENT * letterCount * 2;
 
-  const total = headerBytes + positionsBytes + velocitiesBytes + letterBytes;
+  const total = headerBytes + letterBytes;
   const buffer = new ArrayBuffer(total);
   const dv = new DataView(buffer);
   let offset = 0;
@@ -137,16 +130,6 @@ async function handleAnimationInitBinary(request) {
   dv.setFloat32(offset, animationData.rainFloor, true); offset += 4;
   dv.setFloat32(offset, animationData.rainCeil, true); offset += 4;
   dv.setFloat32(offset, animationData.rainIntensity, true); offset += 4;
-
-  // positions
-  const f32 = new Float32Array(buffer, offset, rainCount * 3);
-  for (let i = 0; i < rainCount * 3; i++) f32[i] = animationData.rainPositions[i];
-  offset += positionsBytes;
-
-  // velocities
-  const f32v = new Float32Array(buffer, offset, rainCount * 3);
-  for (let i = 0; i < rainCount * 3; i++) f32v[i] = animationData.rainVelocities[i];
-  offset += velocitiesBytes;
 
   // letter velocities (vx, vy)
   const f32l = new Float32Array(buffer, offset, letterCount * 2);

@@ -14,6 +14,7 @@ rainy v2.0.0 개발, 최적화 및 구조 변경 TODO 메모
    1) 프론트엔드로 이관된 초기화 설정을 await로 확실히 수신/계산
    2) await document.fonts.ready로 웹폰트 로드를 보장한 후 글자 폭 측정 및 좌표 배치 실행
 
+ // 폐기 
  TODO 3: [성능 최적화] 웹 워커(physicsWorker.js) 메인 스레드 통신 소유권 이전 (Transferable)
  - 변경 전: postMessage({ buffer: arrayBuffer }) -> 내부적으로 복사(Structured Clone) 발생
  - 변경 후: postMessage(arrayBuffer, [arrayBuffer]) -> 복사 없이 메모리 주소 통째로 소유권 이전
