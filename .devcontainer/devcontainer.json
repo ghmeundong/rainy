@@ -1,4 +1,5 @@
 {
     "name": "Dev Environment",
-    "postStartCommand": "npm install && npm run dev & (cd backend && npm install && npm run dev) & sleep 5 && echo -e '\\n\\n \\033[1;36m[로컬 테스트 준비 완료]\\033[0m\\n Frontend: \\033[4;34mhttp://localhost:5173\\033[0m\\n Backend: \\033[4;34mhttp://localhost:8787\\033[0m\\n'"
+    "postCreateCommand": "npm install && (cd backend && npm install)",
+    "postStartCommand": "npm run dev & (cd backend && npm run dev) & sleep 4 && echo '' && echo ' [로컬 테스트 준비 완료!]' && echo ' Frontend: http://localhost:5173' && echo ' Backend: http://localhost:8787' && echo ''"
 }
