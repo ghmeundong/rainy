@@ -190,28 +190,33 @@ async function initThreeScene() {
   }
 
   // Start physics worker and initialize with copies of buffers
-  let latestWorkerPositions = null;
   let physicsWorker = null;
   try {
     physicsWorker = new Worker(new URL('./workers/physicsWorker.js', import.meta.url), { type: 'module' });
+    // send copies of initial buffers to worker (transfer) so worker owns its buffers
+    const initPosBuf = rainPositions.slice().buffer;
+    const initVelBuf = rainVelocities.slice().buffer;
     physicsWorker.postMessage({
       type: 'init',
       rainCount,
-      rainPositions: rainPositions.slice(),
-      rainVelocities: rainVelocities.slice(),
+      positionsBuffer: initPosBuf,
+      velocitiesBuffer: initVelBuf,
       rainFloor,
       rainCeil,
       gravity: 0.08,
-    });
+    }, [initPosBuf, initVelBuf]);
+
+    // ping-pong buffers: worker will post updated buffers back; store them until the next frame
+    let latestPositionsBuffer = null;
+    let latestVelocitiesBuffer = null;
+    let haveBuffersForMain = false;
 
     physicsWorker.onmessage = (ev) => {
       const msg = ev.data;
-      if (msg && msg.type === 'update' && msg.rainPositions) {
-        // Structured-cloned Float32Array
-        latestWorkerPositions = msg.rainPositions;
-        const posAttr = rainGeometry.getAttribute('position');
-        posAttr.array.set(latestWorkerPositions);
-        posAttr.needsUpdate = true;
+      if (msg && msg.type === 'update' && msg.positionsBuffer) {
+        latestPositionsBuffer = msg.positionsBuffer;
+        latestVelocitiesBuffer = msg.velocitiesBuffer;
+        haveBuffersForMain = true;
       }
     };
   } catch (err) {
@@ -310,6 +315,19 @@ async function initThreeScene() {
     const trailArray = trailAttr.array;
     let trailIndex = 0;
 
+    // If we received updated buffers from the worker, bind them for this frame
+    if (physicsWorker && typeof haveBuffersForMain !== 'undefined' && haveBuffersForMain) {
+      // swap in transferred buffers for rendering
+      const newPos = new Float32Array(latestPositionsBuffer);
+      const newVel = new Float32Array(latestVelocitiesBuffer);
+      posAttr.array = newPos;
+      posAttr.needsUpdate = true;
+      rainGeometry.getAttribute('velocity').array = newVel;
+      rainGeometry.getAttribute('velocity').needsUpdate = true;
+      // mark that buffers are now owned by main for this frame
+      haveBuffersForMain = false;
+    }
+
     // Ask worker to advance physics (non-blocking)
     if (physicsWorker) {
       physicsWorker.postMessage({ type: 'step', dt: 1.0, intensity: rainIntensity });
@@ -371,6 +389,21 @@ async function initThreeScene() {
     const trailColorAttr = trailGeometry.getAttribute('color');
     if (trailColorAttr) trailColorAttr.needsUpdate = true;
     trailGeometry.setDrawRange(0, trailIndex / 3);
+
+    // After rendering and using the buffers for this frame, return them to worker for the next step
+    try {
+      if (physicsWorker && posAttr.array && posAttr.array.buffer) {
+        const returnPosBuf = posAttr.array.buffer;
+        const velAttr = rainGeometry.getAttribute('velocity');
+        const returnVelBuf = velAttr && velAttr.array ? velAttr.array.buffer : null;
+        if (returnPosBuf) {
+          const transferList = returnVelBuf ? [returnPosBuf, returnVelBuf] : [returnPosBuf];
+          physicsWorker.postMessage({ type: 'returnBuffers', positionsBuffer: returnPosBuf, velocitiesBuffer: returnVelBuf }, transferList);
+        }
+      }
+    } catch (err) {
+      // ignore transfer errors
+    }
   }
 
   // Splash particles for ground impact effect
@@ -668,6 +701,15 @@ $(document).ready(async function() {
     vy: letterVelocities[index]?.vy ?? (Math.random() - 0.5) * 0.8,
   }));
   
+  // Ensure fonts and layout are ready before measuring element sizes
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  } catch (err) {
+    // ignore if fonts API unavailable
+  }
+  // wait a frame to ensure layout updated
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
   // 글자를 escampar 단어 형태로 정렬
   const totalWidth = Array.from(letters).reduce((sum, letter) => sum + letter.offsetWidth, 0) + (letters.length - 1) * 10;
   const baseX = (bannerRect.width - totalWidth) / 2;
