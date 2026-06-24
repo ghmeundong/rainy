@@ -1,7 +1,3 @@
-// TODO: isMobile  모바일쪽 size 활용, 대신 count 갯수를 줄이기
-// TODO: 해상도가 높아도 랜더링 비율 2로 고정
-
-
 import './style.css';
 import $ from 'jquery';
 import { api } from './services/api.js';
